@@ -11,6 +11,12 @@ pub struct PassivePointsText;
 #[derive(Component)]
 pub struct PassiveConnection(pub u32, pub u32);
 
+#[derive(Component)]
+pub struct PassiveTooltip;
+
+#[derive(Component)]
+pub struct PassiveTooltipText;
+
 pub fn toggle_passive_ui(
     keyboard: Res<ButtonInput<KeyCode>>,
     current_state: Res<State<GameState>>,
@@ -142,6 +148,57 @@ pub fn setup_passive_ui(
                     }
                 });
 
+            // Tooltip Area
+            parent
+                .spawn((
+                    NodeBundle {
+                        style: Style {
+                            width: Val::Px(400.0),
+                            height: Val::Px(80.0),
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            padding: UiRect::all(Val::Px(10.0)),
+                            margin: UiRect::top(Val::Px(10.0)),
+                            ..default()
+                        },
+                        background_color: Color::srgba(0.1, 0.1, 0.1, 0.8).into(),
+                        ..default()
+                    },
+                    PassiveTooltip,
+                ))
+                .with_children(|tooltip| {
+                    tooltip.spawn((
+                        TextBundle::from_sections([
+                            TextSection::new(
+                                "",
+                                TextStyle {
+                                    font_size: 20.0,
+                                    color: Color::WHITE,
+                                    ..default()
+                                },
+                            ),
+                            TextSection::new(
+                                "\n",
+                                TextStyle {
+                                    font_size: 14.0,
+                                    color: Color::srgb(0.8, 0.8, 0.8),
+                                    ..default()
+                                },
+                            ),
+                            TextSection::new(
+                                "",
+                                TextStyle {
+                                    font_size: 16.0,
+                                    color: Color::srgb(0.9, 0.9, 0.3),
+                                    ..default()
+                                },
+                            ),
+                        ]),
+                        PassiveTooltipText,
+                    ));
+                });
+
             parent.spawn(TextBundle::from_section(
                 "Press P to Close",
                 TextStyle {
@@ -167,6 +224,7 @@ pub fn update_passive_ui(
         With<Button>,
     >,
     mut connections: Query<(&PassiveConnection, &mut BackgroundColor), Without<Button>>,
+    mut tooltip_text: Query<&mut Text, With<PassiveTooltipText>>,
 ) {
     let Ok(passives) = player_query.get_single() else {
         return;
@@ -175,6 +233,8 @@ pub fn update_passive_ui(
     if let Ok(mut text) = points_text.get_single_mut() {
         text.sections[0].value = format!("Points Available: {}", passives.points);
     }
+
+    let mut hovered_node = None;
 
     for (node_btn, mut bg_color, mut border_color, interaction) in node_buttons.iter_mut() {
         let id = node_btn.0;
@@ -210,6 +270,20 @@ pub fn update_passive_ui(
             } else {
                 *border_color = Color::srgb(0.4, 0.4, 0.4).into();
             }
+        }
+
+        if *interaction == Interaction::Hovered {
+            hovered_node = Some(node);
+        }
+    }
+
+    if let Ok(mut text) = tooltip_text.get_single_mut() {
+        if let Some(node) = hovered_node {
+            text.sections[0].value = node.name.clone();
+            text.sections[2].value = node.description.clone();
+        } else {
+            text.sections[0].value = "Hover a node to see details".to_string();
+            text.sections[2].value = "".to_string();
         }
     }
 

@@ -258,6 +258,7 @@ fn setup(
         PassiveNode {
             id: 0,
             name: "Start".to_string(),
+            description: "+5 Damage".to_string(),
             effect: PassiveEffect::StatAdd(Stats {
                 damage: 5.0,
                 ..zero_stats
@@ -273,6 +274,7 @@ fn setup(
         PassiveNode {
             id: 1,
             name: "Titan I".to_string(),
+            description: "+5 Armor".to_string(),
             effect: PassiveEffect::StatAdd(Stats {
                 armor: 5.0,
                 ..zero_stats
@@ -286,6 +288,7 @@ fn setup(
         PassiveNode {
             id: 2,
             name: "Titan II".to_string(),
+            description: "+10 Armor".to_string(),
             effect: PassiveEffect::StatAdd(Stats {
                 armor: 10.0,
                 ..zero_stats
@@ -299,6 +302,7 @@ fn setup(
         PassiveNode {
             id: 3,
             name: "Titan III".to_string(),
+            description: "+15 Armor".to_string(),
             effect: PassiveEffect::StatAdd(Stats {
                 armor: 15.0,
                 ..zero_stats
@@ -317,6 +321,7 @@ fn setup(
         PassiveNode {
             id: 4,
             name: "Falcon I".to_string(),
+            description: "+10% Attack Speed".to_string(),
             effect: PassiveEffect::StatAdd(Stats {
                 attack_speed: 0.1,
                 ..zero_stats
@@ -330,6 +335,7 @@ fn setup(
         PassiveNode {
             id: 5,
             name: "Falcon II".to_string(),
+            description: "+5% Crit Chance".to_string(),
             effect: PassiveEffect::StatAdd(Stats {
                 crit_chance: 0.05,
                 ..zero_stats
@@ -343,6 +349,7 @@ fn setup(
         PassiveNode {
             id: 6,
             name: "Falcon III".to_string(),
+            description: "+50% Crit Multiplier".to_string(),
             effect: PassiveEffect::StatAdd(Stats {
                 crit_multiplier: 0.5,
                 ..zero_stats
@@ -356,6 +363,7 @@ fn setup(
         PassiveNode {
             id: 10,
             name: "Ricochet".to_string(),
+            description: "Projectiles bounce once".to_string(),
             effect: PassiveEffect::Ricochet,
             requirements: vec![4],
             position: Vec2::new(0.0, 300.0),
@@ -372,6 +380,7 @@ fn setup(
         PassiveNode {
             id: 7,
             name: "Arcanist I".to_string(),
+            description: "+10 Damage".to_string(),
             effect: PassiveEffect::StatAdd(Stats {
                 damage: 10.0,
                 ..zero_stats
@@ -385,6 +394,7 @@ fn setup(
         PassiveNode {
             id: 8,
             name: "Arcanist II".to_string(),
+            description: "Adds knockback to attacks".to_string(),
             effect: PassiveEffect::Knockback,
             requirements: vec![7],
             position: Vec2::new(250.0, 50.0),
@@ -395,6 +405,7 @@ fn setup(
         PassiveNode {
             id: 9,
             name: "Arcanist III".to_string(),
+            description: "Enemies explode on death".to_string(),
             effect: PassiveEffect::Explosion,
             requirements: vec![7],
             position: Vec2::new(250.0, -50.0),

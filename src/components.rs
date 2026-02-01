@@ -79,6 +79,7 @@ pub enum PassiveEffect {
 pub struct PassiveNode {
     pub id: u32,
     pub name: String,
+    pub description: String,
     pub effect: PassiveEffect,
     pub requirements: Vec<u32>,
     pub position: Vec2,
