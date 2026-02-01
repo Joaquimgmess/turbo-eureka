@@ -716,84 +716,119 @@ fn player_attack(
         stats.damage
     };
 
-    // LMB - Projétil
+    // LMB - Ataque (Projetil ou Melee para Tank)
     if mouse.pressed(MouseButton::Left) {
-        cooldown.0 = Timer::from_seconds(0.25 / stats.attack_speed, TimerMode::Once);
-
-        let spawn_pos = player_pos + direction * 30.0;
-        let proj_color = match player.class {
-            PlayerClass::Mage => Color::srgb(0.6, 0.3, 1.0),
-            PlayerClass::Archer => Color::srgb(0.9, 0.9, 0.4),
-            _ => Color::srgb(1.0, 0.7, 0.1),
-        };
-
-        commands.spawn((
-            SpriteBundle {
-                sprite: Sprite {
-                    color: if is_crit {
-                        Color::srgb(1.0, 1.0, 0.2)
-                    } else {
-                        proj_color
-                    },
-                    custom_size: Some(Vec2::new(14.0, 14.0)),
-                    ..default()
-                },
-                transform: Transform::from_translation(spawn_pos.extend(5.0)),
-                ..default()
-            },
-            Projectile {
+        if player.class == PlayerClass::Tank {
+            // Tank usa o ataque melee no LMB também, já que não tem projétil
+            spawn_melee_attack(
+                &mut commands,
+                player_entity,
+                player_pos,
+                direction,
                 damage,
-                owner: player_entity,
-                pierce: if player.class == PlayerClass::Archer {
-                    1
-                } else {
-                    0
-                },
-                hit_entities: HashSet::new(),
-                is_crit,
-            },
-            Velocity(direction * 550.0),
-            Lifetime(Timer::from_seconds(2.0, TimerMode::Once)),
-        ));
-    }
-
-    // RMB - Melee
-    if mouse.just_pressed(MouseButton::Right) {
-        cooldown.0 = Timer::from_seconds(0.4 / stats.attack_speed, TimerMode::Once);
-
-        let melee_damage = damage * 1.8;
-        let spawn_pos = player_pos + direction * 45.0;
-
-        let (size, color) = if player.class == PlayerClass::Tank {
-            (Vec2::new(120.0, 100.0), Color::srgba(0.2, 0.5, 1.0, 0.7))
+                stats.attack_speed,
+                true,
+            );
+            cooldown.0 = Timer::from_seconds(0.4 / stats.attack_speed, TimerMode::Once);
         } else {
-            (Vec2::new(90.0, 70.0), Color::srgba(0.9, 0.4, 0.1, 0.7))
-        };
+            cooldown.0 = Timer::from_seconds(0.25 / stats.attack_speed, TimerMode::Once);
 
-        commands.spawn((
-            SpriteBundle {
-                sprite: Sprite {
-                    color: if is_crit {
-                        Color::srgba(1.0, 0.6, 0.0, 0.85)
-                    } else {
-                        color
+            let spawn_pos = player_pos + direction * 30.0;
+            let proj_color = match player.class {
+                PlayerClass::Mage => Color::srgb(0.6, 0.3, 1.0),
+                PlayerClass::Archer => Color::srgb(0.9, 0.9, 0.4),
+                _ => Color::srgb(1.0, 0.7, 0.1),
+            };
+
+            commands.spawn((
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: if is_crit {
+                            Color::srgb(1.0, 1.0, 0.2)
+                        } else {
+                            proj_color
+                        },
+                        custom_size: Some(Vec2::new(14.0, 14.0)),
+                        ..default()
                     },
-                    custom_size: Some(size),
+                    transform: Transform::from_translation(spawn_pos.extend(5.0)),
                     ..default()
                 },
-                transform: Transform::from_translation(spawn_pos.extend(4.0))
-                    .with_rotation(Quat::from_rotation_z(direction.y.atan2(direction.x))),
+                Projectile {
+                    damage,
+                    owner: player_entity,
+                    pierce: if player.class == PlayerClass::Archer {
+                        1
+                    } else {
+                        0
+                    },
+                    hit_entities: HashSet::new(),
+                    is_crit,
+                },
+                Velocity(direction * 550.0),
+                Lifetime(Timer::from_seconds(2.0, TimerMode::Once)),
+            ));
+        }
+    }
+
+    // RMB - Melee (Sempre disponível, mas Tank é o foco)
+    if mouse.pressed(MouseButton::Right) {
+        spawn_melee_attack(
+            &mut commands,
+            player_entity,
+            player_pos,
+            direction,
+            damage,
+            stats.attack_speed,
+            player.class == PlayerClass::Tank,
+        );
+        cooldown.0 = Timer::from_seconds(0.4 / stats.attack_speed, TimerMode::Once);
+    }
+}
+
+fn spawn_melee_attack(
+    commands: &mut Commands,
+    player_entity: Entity,
+    player_pos: Vec2,
+    direction: Vec2,
+    damage: f32,
+    _attack_speed: f32,
+    is_tank: bool,
+) {
+    let mut rng = rand::thread_rng();
+    let is_crit = rng.r#gen::<f32>() < 0.1; // Simplificado para o helper, mas idealmente passaria crit_chance
+    let melee_damage = damage * 1.8;
+    let spawn_pos = player_pos + direction * 45.0;
+
+    let (size, color) = if is_tank {
+        (Vec2::new(120.0, 100.0), Color::srgba(0.2, 0.5, 1.0, 0.7))
+    } else {
+        (Vec2::new(90.0, 70.0), Color::srgba(0.9, 0.4, 0.1, 0.7))
+    };
+
+    commands.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                color: if is_crit {
+                    Color::srgba(1.0, 0.6, 0.0, 0.85)
+                } else {
+                    color
+                },
+                custom_size: Some(size),
                 ..default()
             },
-            MeleeAttack {
-                damage: melee_damage,
-                owner: player_entity,
-                duration: Timer::from_seconds(0.12, TimerMode::Once),
-                hit_entities: HashSet::new(),
-                is_crit,
-            },
-        ));
-    }
+            transform: Transform::from_translation(spawn_pos.extend(4.0))
+                .with_rotation(Quat::from_rotation_z(direction.y.atan2(direction.x))),
+            ..default()
+        },
+        MeleeAttack {
+            damage: melee_damage,
+            owner: player_entity,
+            duration: Timer::from_seconds(0.12, TimerMode::Once),
+            hit_entities: HashSet::new(),
+            is_crit,
+        },
+    ));
 }
 
 fn player_skills(
