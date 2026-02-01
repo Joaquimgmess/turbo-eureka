@@ -56,7 +56,7 @@ pub fn setup_passive_ui(
             PassiveUi,
         ))
         .with_children(|parent| {
-            // Header
+
             parent.spawn(TextBundle::from_section(
                 "PASSIVE TREE",
                 TextStyle {
@@ -78,7 +78,6 @@ pub fn setup_passive_ui(
                 PassivePointsText,
             ));
 
-            // Map Container
             parent
                 .spawn(NodeBundle {
                     style: Style {
@@ -92,7 +91,7 @@ pub fn setup_passive_ui(
                     ..default()
                 })
                 .with_children(|map| {
-                    // Render connections
+
                     for &(id1, id2) in &passive_tree.connections {
                         if let (Some(node1), Some(node2)) =
                             (passive_tree.nodes.get(&id1), passive_tree.nodes.get(&id2))
@@ -125,7 +124,6 @@ pub fn setup_passive_ui(
                         }
                     }
 
-                    // Render nodes
                     for (&id, node) in &passive_tree.nodes {
                         map.spawn((
                             ButtonBundle {
@@ -148,7 +146,6 @@ pub fn setup_passive_ui(
                     }
                 });
 
-            // Tooltip Area
             parent
                 .spawn((
                     NodeBundle {
@@ -213,7 +210,7 @@ pub fn setup_passive_ui(
 pub fn update_passive_ui(
     player_query: Query<&PlayerPassives, With<Player>>,
     passive_tree: Res<PassiveTree>,
-    mut points_text: Query<&mut Text, With<PassivePointsText>>,
+    mut points_text: Query<&mut Text, (With<PassivePointsText>, Without<PassiveTooltipText>)>,
     mut node_buttons: Query<
         (
             &PassiveNodeButton,
@@ -224,7 +221,7 @@ pub fn update_passive_ui(
         With<Button>,
     >,
     mut connections: Query<(&PassiveConnection, &mut BackgroundColor), Without<Button>>,
-    mut tooltip_text: Query<&mut Text, With<PassiveTooltipText>>,
+    mut tooltip_text: Query<&mut Text, (With<PassiveTooltipText>, Without<PassivePointsText>)>,
 ) {
     let Ok(passives) = player_query.get_single() else {
         return;

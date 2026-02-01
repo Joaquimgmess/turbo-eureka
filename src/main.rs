@@ -1,14 +1,4 @@
-//! ARPG Minimalista
-//!
-//! Controles:
-//! - WASD: Mover
-//! - Mouse: Mirar
-//! - Click Esquerdo: Projétil
-//! - Click Direito: Ataque melee (área)
-//! - Q: Dash
-//! - Space: Fire Nova
-//! - Tab: Mostrar/esconder stats
-//! - R: Reiniciar
+
 
 mod components;
 mod events;
@@ -42,7 +32,7 @@ fn main() {
         .add_event::<DamageEvent>()
         .add_event::<SpawnXpOrbEvent>()
         .add_systems(Startup, setup)
-        // Sistemas de Seleção
+
         .add_systems(
             OnEnter(GameState::CharacterSelection),
             setup_class_selection,
@@ -121,7 +111,7 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    // Layout para spritesheets de 6x1 (100x100 pixels por frame)
+
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(100), 6, 1, None, None);
     let layout_handle = texture_atlases.add(layout);
 
@@ -135,10 +125,8 @@ fn setup(
         layout: layout_handle,
     });
 
-    // Camera
     commands.spawn(Camera2dBundle::default());
 
-    // UI - Cooldowns
     commands.spawn((
         TextBundle::from_sections([
             TextSection::new(
@@ -191,7 +179,6 @@ fn setup(
         CooldownUi,
     ));
 
-    // UI - Stats
     commands.spawn((
         TextBundle::from_sections([
             TextSection::new(
@@ -220,7 +207,6 @@ fn setup(
         StatsUi,
     ));
 
-    // Instruções
     commands.spawn(
         TextBundle::from_section(
             "WASD: Move | LMB: Shoot | RMB: Melee | Q: Dash | Space: Nova | Tab: Stats | P: Passives",
@@ -238,7 +224,6 @@ fn setup(
         }),
     );
 
-    // Initialize Passive Tree
     let mut nodes = HashMap::new();
     let mut connections = Vec::new();
 
@@ -252,7 +237,6 @@ fn setup(
         armor: 0.0,
     };
 
-    // Node 0: Start
     nodes.insert(
         0,
         PassiveNode {
@@ -268,7 +252,6 @@ fn setup(
         },
     );
 
-    // Titan Cluster (HP/Armor) - Left
     nodes.insert(
         1,
         PassiveNode {
@@ -315,7 +298,6 @@ fn setup(
     connections.push((1, 2));
     connections.push((1, 3));
 
-    // Falcon Cluster (Atk Speed/Crit) - Top
     nodes.insert(
         4,
         PassiveNode {
@@ -374,7 +356,6 @@ fn setup(
     connections.push((4, 6));
     connections.push((4, 10));
 
-    // Arcanist Cluster (Special) - Right
     nodes.insert(
         7,
         PassiveNode {

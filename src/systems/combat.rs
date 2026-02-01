@@ -57,7 +57,6 @@ pub fn update_projectiles(
                 is_crit: projectile.is_crit,
             });
 
-            // Ricochet Logic
             let mut chained = false;
             if projectile.chain_count > 0 {
                 let mut nearest_enemy = None;
@@ -80,7 +79,6 @@ pub fn update_projectiles(
                     let speed = velocity.0.length();
                     velocity.0 = new_dir * speed;
 
-                    // Update rotation to face new direction
                     transform.rotation = Quat::from_rotation_z(new_dir.y.atan2(new_dir.x));
 
                     projectile.chain_count -= 1;
@@ -223,7 +221,6 @@ pub fn process_damage(
             let damage_reduction = armor / (armor + 100.0);
             let mut final_damage = event.amount * (1.0 - damage_reduction);
 
-            // Aplicar dano ao escudo primeiro
             if let Some(mut s) = shield {
                 if s.amount > 0.0 {
                     if s.amount >= final_damage {
@@ -237,9 +234,8 @@ pub fn process_damage(
             }
 
             health.current -= final_damage;
-            game_stats.damage_dealt += event.amount; // Contabiliza dano bruto
+            game_stats.damage_dealt += event.amount;
 
-            // Knockback
             if let Some(attacker_pos) = knockback_info {
                 let dir = (transform.translation - attacker_pos)
                     .truncate()
@@ -247,7 +243,6 @@ pub fn process_damage(
                 transform.translation += (dir * 35.0).extend(0.0);
             }
 
-            // Damage number
             let color = if event.is_crit {
                 Color::srgb(1.0, 1.0, 0.0)
             } else {
@@ -314,7 +309,7 @@ pub fn spawn_melee_attack(
     is_tank: bool,
 ) {
     let mut rng = rand::thread_rng();
-    let is_crit = rng.r#gen::<f32>() < 0.1; // Simplificado para o helper, mas idealmente passaria crit_chance
+    let is_crit = rng.r#gen::<f32>() < 0.1;
     let melee_damage = damage * 1.8;
     let spawn_pos = player_pos + direction * 75.0;
 

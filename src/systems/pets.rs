@@ -42,7 +42,6 @@ pub fn update_pets(
             let target = owner_transform.translation.truncate();
             let current = transform.translation.truncate();
 
-            // Offset baseado no tipo de pet para não ficarem encavalados
             let offset = match pet.pet_type {
                 PetType::Healer => Vec2::new(-40.0, 20.0),
                 PetType::Damager => Vec2::new(40.0, 20.0),
@@ -80,7 +79,7 @@ pub fn pet_actions(
                     }
                 }
                 PetType::Damager => {
-                    // Ataca o inimigo mais próximo
+
                     let pet_pos = transform.translation.truncate();
                     let mut nearest: Option<(Entity, f32)> = None;
 
@@ -109,7 +108,7 @@ pub fn pet_actions(
                     }
                 }
                 PetType::Tanker => {
-                    // Tanker pet just exists and is handled by Taunt component in enemy_ai
+
                 }
             }
         }

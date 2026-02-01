@@ -19,7 +19,6 @@ pub fn enemy_ai(
     for (mut transform, enemy, mut state, mut sprite) in enemies.iter_mut() {
         let enemy_pos = transform.translation.truncate();
 
-        // Prioriza alvos com Taunt se estiverem próximos
         let mut target_pos = player_pos;
         let mut min_dist = enemy_pos.distance(player_pos);
 
@@ -42,7 +41,6 @@ pub fn enemy_ai(
                 *state = CharacterState::Walking;
             }
 
-            // Flip sprite based on direction
             if direction.x < 0.0 {
                 sprite.flip_x = true;
             } else if direction.x > 0.0 {
@@ -129,7 +127,7 @@ pub fn spawn_enemies(
         0 => (Vec2::new(170.0, 170.0), Color::WHITE, 35.0, 10.0, 12, 85.0),
         1 => (
             Vec2::new(220.0, 220.0),
-            Color::srgb(1.0, 0.6, 0.6), // Reddish
+            Color::srgb(1.0, 0.6, 0.6),
             70.0,
             15.0,
             30,
@@ -137,7 +135,7 @@ pub fn spawn_enemies(
         ),
         _ => (
             Vec2::new(140.0, 140.0),
-            Color::srgb(0.6, 0.4, 0.9), // Purpleish
+            Color::srgb(0.6, 0.4, 0.9),
             22.0,
             18.0,
             18,

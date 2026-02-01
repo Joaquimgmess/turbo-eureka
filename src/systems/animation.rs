@@ -43,6 +43,6 @@ pub fn update_character_animation_texture(
                 _ => sprites.orc_idle.clone(),
             };
         }
-        atlas.index = 0; // Reset animation when state changes
+        atlas.index = 0;
     }
 }

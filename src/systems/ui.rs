@@ -376,7 +376,13 @@ pub fn start_game(
     mut commands: Commands,
     sprites: Res<CharacterSprites>,
     mut pending: ResMut<PendingSelection>,
+    existing_player: Query<Entity, With<Player>>,
 ) {
+
+    if existing_player.get_single().is_ok() {
+        return;
+    }
+
     let class = pending.class.unwrap_or(PlayerClass::Tank);
     let player_entity = spawn_player(&mut commands, &sprites, Vec3::ZERO, class);
 
@@ -386,6 +392,5 @@ pub fn start_game(
         }
     }
 
-    // Limpar seleção para o próximo restart
     *pending = PendingSelection::default();
 }

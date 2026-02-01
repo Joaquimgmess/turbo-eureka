@@ -43,7 +43,6 @@ pub fn player_movement(
         *state = CharacterState::Idle;
     }
 
-    // Rotação para cursor
     let to_cursor = cursor_pos.0 - transform.translation.truncate();
     let angle = to_cursor.y.atan2(to_cursor.x) - std::f32::consts::FRAC_PI_2;
     transform.rotation = Quat::from_rotation_z(angle);
@@ -134,11 +133,10 @@ pub fn player_attack(
         stats.damage
     };
 
-    // LMB - Ataque (Projetil ou Melee para Tank)
     if mouse.pressed(MouseButton::Left) {
         *state = CharacterState::Attacking;
         if player.class == PlayerClass::Tank {
-            // Tank usa o ataque melee no LMB também, já que não tem projétil
+
             spawn_melee_attack(
                 &mut commands,
                 player_entity,
@@ -207,7 +205,6 @@ pub fn player_attack(
         }
     }
 
-    // RMB - Melee (Sempre disponível, mas Tank é o foco)
     if mouse.pressed(MouseButton::Right) {
         *state = CharacterState::Attacking;
         spawn_melee_attack(
@@ -253,7 +250,6 @@ pub fn player_skills(
 
     let player_pos = transform.translation.truncate();
 
-    // Q - Dash
     if keyboard.just_pressed(KeyCode::KeyQ) && cooldowns.dash.finished() {
         cooldowns.dash = Timer::from_seconds(2.0, TimerMode::Once);
 
@@ -269,7 +265,6 @@ pub fn player_skills(
         ));
     }
 
-    // Space - Nova (Skill Especial)
     if keyboard.just_pressed(KeyCode::Space) && cooldowns.nova.finished() {
         cooldowns.nova = Timer::from_seconds(
             match player.class {
@@ -282,11 +277,11 @@ pub fn player_skills(
 
         match player.class {
             PlayerClass::Tank => {
-                // Iron Skin
+
                 commands
                     .entity(player_entity)
                     .insert(Invulnerable(Timer::from_seconds(2.0, TimerMode::Once)));
-                // Visual effect for Iron Skin
+
                 commands.spawn((
                     SpriteBundle {
                         sprite: Sprite {
@@ -301,14 +296,14 @@ pub fn player_skills(
                 ));
             }
             PlayerClass::Archer => {
-                // Vault: Dash backwards and shoot
+
                 let direction = (player_pos - cursor_pos.0).normalize_or_zero();
                 commands.entity(player_entity).insert(Dash {
                     direction,
                     speed: 1200.0,
                     duration: Timer::from_seconds(0.15, TimerMode::Once),
                 });
-                // Shoot 3 arrows
+
                 let arrow_texture = asset_server.load("sprites/projectiles/arrow.png");
                 for i in -1..=1 {
                     let angle = (i as f32) * 0.2;
@@ -346,12 +341,11 @@ pub fn player_skills(
                 }
             }
             PlayerClass::Mage => {
-                // Teleport
+
                 let direction = (cursor_pos.0 - player_pos).normalize_or_zero();
                 let target = player_pos + direction * 200.0;
                 transform.translation = target.extend(10.0);
 
-                // Visual effect
                 commands.spawn((
                     SpriteBundle {
                         sprite: Sprite {
@@ -366,7 +360,7 @@ pub fn player_skills(
                 ));
             }
             PlayerClass::Tamer => {
-                // Command: Give player a temporary shield
+
                 shield.amount += 30.0;
 
                 commands.spawn((
@@ -438,7 +432,7 @@ pub fn spawn_player(
     }
 
     let body_color = match class {
-        PlayerClass::Tank => Color::srgb(1.0, 1.0, 1.0), // White (no tint)
+        PlayerClass::Tank => Color::srgb(1.0, 1.0, 1.0),
         PlayerClass::Archer => Color::srgb(0.8, 0.7, 0.2),
         PlayerClass::Mage => Color::srgb(0.6, 0.2, 0.8),
         PlayerClass::Tamer => Color::srgb(0.2, 0.8, 0.3),
@@ -479,7 +473,7 @@ pub fn spawn_player(
         .id();
 
     commands.entity(player_entity).with_children(|parent| {
-        // Health bar background
+
         parent.spawn((
             SpriteBundle {
                 sprite: Sprite {
@@ -493,7 +487,6 @@ pub fn spawn_player(
             HealthBar,
         ));
 
-        // Health bar fill
         parent.spawn((
             SpriteBundle {
                 sprite: Sprite {
