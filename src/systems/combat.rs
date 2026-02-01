@@ -41,7 +41,7 @@ pub fn update_projectiles(
             let enemy_pos = enemy_transform.translation.truncate();
             let distance = proj_pos.distance(enemy_pos);
 
-            if distance < 45.0 {
+            if distance < 65.0 {
                 target_enemy = Some(enemy_entity);
                 break;
             }
@@ -124,7 +124,7 @@ pub fn update_melee_attacks(
             let enemy_pos = enemy_transform.translation.truncate();
             let distance = melee_pos.distance(enemy_pos);
 
-            if distance < 95.0 {
+            if distance < 110.0 {
                 melee.hit_entities.insert(enemy_entity);
 
                 damage_events.send(DamageEvent {
@@ -189,88 +189,95 @@ pub fn update_aoe_effects(
 pub fn process_damage(
     mut commands: Commands,
     mut damage_events: EventReader<DamageEvent>,
-    mut targets: Query<(
-        &mut Health,
-        Option<&mut Shield>,
-        &mut Transform,
-        Option<&Stats>,
-        Option<&Invulnerable>,
+    mut set: ParamSet<(
+        Query<(
+            &mut Health,
+            Option<&mut Shield>,
+            &mut Transform,
+            Option<&Stats>,
+            Option<&Invulnerable>,
+        )>,
+        Query<(&Transform, &PlayerPassives)>,
     )>,
-    attackers: Query<(&Transform, &PlayerPassives)>,
     mut game_stats: ResMut<GameStats>,
 ) {
     for event in damage_events.read() {
-        let Ok((mut health, shield, mut transform, stats, invuln)) = targets.get_mut(event.target)
-        else {
-            continue;
-        };
+        let mut knockback_info = None;
 
-        if invuln.is_some() {
-            continue;
-        }
-
-        let armor = stats.map(|s| s.armor).unwrap_or(0.0);
-        let damage_reduction = armor / (armor + 100.0);
-        let mut final_damage = event.amount * (1.0 - damage_reduction);
-
-        // Aplicar dano ao escudo primeiro
-        if let Some(mut s) = shield {
-            if s.amount > 0.0 {
-                if s.amount >= final_damage {
-                    s.amount -= final_damage;
-                    final_damage = 0.0;
-                } else {
-                    final_damage -= s.amount;
-                    s.amount = 0.0;
-                }
-            }
-        }
-
-        health.current -= final_damage;
-        game_stats.damage_dealt += event.amount; // Contabiliza dano bruto
-
-        // Knockback
         if let Some(attacker_entity) = event.attacker {
-            if let Ok((attacker_transform, passives)) = attackers.get(attacker_entity) {
+            if let Ok((attacker_transform, passives)) = set.p1().get(attacker_entity) {
                 if passives.unlocked_nodes.contains(&8) {
-                    let dir = (transform.translation - attacker_transform.translation)
-                        .truncate()
-                        .normalize_or_zero();
-                    transform.translation += (dir * 30.0).extend(0.0);
+                    knockback_info = Some(attacker_transform.translation);
                 }
             }
         }
 
-        // Damage number
-        let color = if event.is_crit {
-            Color::srgb(1.0, 1.0, 0.0)
-        } else {
-            Color::srgb(1.0, 0.3, 0.3)
-        };
+        if let Ok((mut health, shield, mut transform, stats, invuln)) =
+            set.p0().get_mut(event.target)
+        {
+            if invuln.is_some() {
+                continue;
+            }
 
-        let font_size = if event.is_crit { 26.0 } else { 18.0 };
+            let armor = stats.map(|s| s.armor).unwrap_or(0.0);
+            let damage_reduction = armor / (armor + 100.0);
+            let mut final_damage = event.amount * (1.0 - damage_reduction);
 
-        commands.spawn((
-            Text2dBundle {
-                text: Text::from_section(
-                    format!("{:.0}", final_damage),
-                    TextStyle {
-                        font_size,
-                        color,
-                        ..default()
-                    },
-                ),
-                transform: Transform::from_translation(
-                    transform.translation
-                        + Vec3::new(rand::thread_rng().gen_range(-15.0..15.0), 20.0, 100.0),
-                ),
-                ..default()
-            },
-            DamageNumber {
-                velocity: Vec2::new(rand::thread_rng().gen_range(-25.0..25.0), 60.0),
-                lifetime: Timer::from_seconds(0.7, TimerMode::Once),
-            },
-        ));
+            // Aplicar dano ao escudo primeiro
+            if let Some(mut s) = shield {
+                if s.amount > 0.0 {
+                    if s.amount >= final_damage {
+                        s.amount -= final_damage;
+                        final_damage = 0.0;
+                    } else {
+                        final_damage -= s.amount;
+                        s.amount = 0.0;
+                    }
+                }
+            }
+
+            health.current -= final_damage;
+            game_stats.damage_dealt += event.amount; // Contabiliza dano bruto
+
+            // Knockback
+            if let Some(attacker_pos) = knockback_info {
+                let dir = (transform.translation - attacker_pos)
+                    .truncate()
+                    .normalize_or_zero();
+                transform.translation += (dir * 35.0).extend(0.0);
+            }
+
+            // Damage number
+            let color = if event.is_crit {
+                Color::srgb(1.0, 1.0, 0.0)
+            } else {
+                Color::srgb(1.0, 0.3, 0.3)
+            };
+
+            let font_size = if event.is_crit { 26.0 } else { 18.0 };
+
+            commands.spawn((
+                Text2dBundle {
+                    text: Text::from_section(
+                        format!("{:.0}", final_damage),
+                        TextStyle {
+                            font_size,
+                            color,
+                            ..default()
+                        },
+                    ),
+                    transform: Transform::from_translation(
+                        transform.translation
+                            + Vec3::new(rand::thread_rng().gen_range(-15.0..15.0), 20.0, 100.0),
+                    ),
+                    ..default()
+                },
+                DamageNumber {
+                    velocity: Vec2::new(rand::thread_rng().gen_range(-25.0..25.0), 60.0),
+                    lifetime: Timer::from_seconds(0.7, TimerMode::Once),
+                },
+            ));
+        }
     }
 }
 

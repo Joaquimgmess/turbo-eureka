@@ -34,7 +34,7 @@ pub fn enemy_ai(
         let to_target = target_pos - enemy_pos;
         let distance = to_target.length();
 
-        if distance > 60.0 {
+        if distance > 80.0 {
             let direction = to_target.normalize();
             transform.translation += (direction * enemy.speed * time.delta_seconds()).extend(0.0);
 
@@ -75,7 +75,7 @@ pub fn enemy_attack(
         let enemy_pos = transform.translation.truncate();
         let distance = enemy_pos.distance(player_pos);
 
-        if distance < 65.0 && enemy.attack_cooldown.finished() {
+        if distance < 85.0 && enemy.attack_cooldown.finished() {
             enemy.attack_cooldown = Timer::from_seconds(1.0, TimerMode::Once);
             *state = CharacterState::Attacking;
 
