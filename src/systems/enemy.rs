@@ -3,6 +3,7 @@ use crate::events::*;
 use crate::resources::*;
 use bevy::prelude::*;
 use rand::Rng;
+use std::collections::HashSet;
 
 pub fn enemy_ai(
     time: Res<Time>,
@@ -56,7 +57,7 @@ pub fn enemy_ai(
 pub fn enemy_attack(
     time: Res<Time>,
     player_query: Query<(Entity, &Transform), (With<Player>, Without<Enemy>)>,
-    mut enemies: Query<(&Transform, &mut Enemy, &mut CharacterState)>,
+    mut enemies: Query<(Entity, &Transform, &mut Enemy, &mut CharacterState)>,
     mut damage_events: EventWriter<DamageEvent>,
 ) {
     let Ok((player_entity, player_transform)) = player_query.get_single() else {
@@ -64,7 +65,7 @@ pub fn enemy_attack(
     };
     let player_pos = player_transform.translation.truncate();
 
-    for (transform, mut enemy, mut state) in enemies.iter_mut() {
+    for (enemy_entity, transform, mut enemy, mut state) in enemies.iter_mut() {
         enemy.attack_cooldown.tick(time.delta());
 
         if enemy.attack_cooldown.finished() && *state == CharacterState::Attacking {
@@ -80,6 +81,7 @@ pub fn enemy_attack(
 
             damage_events.send(DamageEvent {
                 target: player_entity,
+                attacker: Some(enemy_entity),
                 amount: enemy.damage,
                 is_crit: false,
             });
@@ -211,9 +213,14 @@ pub fn spawn_enemies(
 pub fn check_enemy_death(
     mut commands: Commands,
     enemies: Query<(Entity, &Health, &Transform, &Enemy)>,
+    player_query: Query<(Entity, &PlayerPassives), With<Player>>,
     mut game_stats: ResMut<GameStats>,
     mut xp_events: EventWriter<SpawnXpOrbEvent>,
 ) {
+    let Ok((player_entity, passives)) = player_query.get_single() else {
+        return;
+    };
+
     for (entity, health, transform, enemy) in enemies.iter() {
         if health.current <= 0.0 {
             game_stats.enemies_killed += 1;
@@ -222,6 +229,27 @@ pub fn check_enemy_death(
                 position: transform.translation,
                 value: enemy.xp_value,
             });
+
+            if passives.unlocked_nodes.contains(&9) {
+                commands.spawn((
+                    SpriteBundle {
+                        sprite: Sprite {
+                            color: Color::srgba(1.0, 0.4, 0.0, 0.6),
+                            custom_size: Some(Vec2::splat(150.0)),
+                            ..default()
+                        },
+                        transform: Transform::from_translation(transform.translation),
+                        ..default()
+                    },
+                    AoeEffect {
+                        damage: 40.0,
+                        owner: player_entity,
+                        tick_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
+                        duration: Timer::from_seconds(0.3, TimerMode::Once),
+                        hit_this_tick: HashSet::new(),
+                    },
+                ));
+            }
 
             commands.entity(entity).despawn_recursive();
         }

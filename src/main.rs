@@ -19,7 +19,10 @@ use bevy::prelude::*;
 use components::*;
 use events::*;
 use resources::*;
-use systems::{animation::*, combat::*, enemy::*, pets::*, player::*, ui::*, world::*};
+use std::collections::HashMap;
+use systems::{
+    animation::*, combat::*, enemy::*, passive_ui::*, pets::*, player::*, ui::*, world::*,
+};
 
 fn main() {
     App::new()
@@ -59,6 +62,7 @@ fn main() {
         .add_systems(
             Update,
             (
+                toggle_passive_ui,
                 update_cursor_world_pos,
                 animate_sprite,
                 update_character_animation_texture,
@@ -100,6 +104,13 @@ fn main() {
             )
                 .run_if(in_state(GameState::Playing)),
         )
+        .add_systems(OnEnter(GameState::PassiveTree), setup_passive_ui)
+        .add_systems(
+            Update,
+            (toggle_passive_ui, handle_node_click, update_passive_ui)
+                .run_if(in_state(GameState::PassiveTree)),
+        )
+        .add_systems(OnExit(GameState::PassiveTree), despawn_passive_ui)
         .add_systems(Update, restart_game)
         .add_systems(OnEnter(GameState::GameOver), show_game_over)
         .run();
@@ -212,7 +223,7 @@ fn setup(
     // Instruções
     commands.spawn(
         TextBundle::from_section(
-            "WASD: Move | LMB: Shoot | RMB: Melee | Q: Dash | Space: Nova | Tab: Stats",
+            "WASD: Move | LMB: Shoot | RMB: Melee | Q: Dash | Space: Nova | Tab: Stats | P: Passives",
             TextStyle {
                 font_size: 14.0,
                 color: Color::srgb(0.5, 0.5, 0.5),
@@ -226,4 +237,172 @@ fn setup(
             ..default()
         }),
     );
+
+    // Initialize Passive Tree
+    let mut nodes = HashMap::new();
+    let mut connections = Vec::new();
+
+    let zero_stats = Stats {
+        speed: 0.0,
+        damage: 0.0,
+        attack_speed: 0.0,
+        crit_chance: 0.0,
+        crit_multiplier: 0.0,
+        life_regen: 0.0,
+        armor: 0.0,
+    };
+
+    // Node 0: Start
+    nodes.insert(
+        0,
+        PassiveNode {
+            id: 0,
+            name: "Start".to_string(),
+            effect: PassiveEffect::StatAdd(Stats {
+                damage: 5.0,
+                ..zero_stats
+            }),
+            requirements: vec![],
+            position: Vec2::ZERO,
+        },
+    );
+
+    // Titan Cluster (HP/Armor) - Left
+    nodes.insert(
+        1,
+        PassiveNode {
+            id: 1,
+            name: "Titan I".to_string(),
+            effect: PassiveEffect::StatAdd(Stats {
+                armor: 5.0,
+                ..zero_stats
+            }),
+            requirements: vec![0],
+            position: Vec2::new(-150.0, 0.0),
+        },
+    );
+    nodes.insert(
+        2,
+        PassiveNode {
+            id: 2,
+            name: "Titan II".to_string(),
+            effect: PassiveEffect::StatAdd(Stats {
+                armor: 10.0,
+                ..zero_stats
+            }),
+            requirements: vec![1],
+            position: Vec2::new(-250.0, 50.0),
+        },
+    );
+    nodes.insert(
+        3,
+        PassiveNode {
+            id: 3,
+            name: "Titan III".to_string(),
+            effect: PassiveEffect::StatAdd(Stats {
+                armor: 15.0,
+                ..zero_stats
+            }),
+            requirements: vec![1],
+            position: Vec2::new(-250.0, -50.0),
+        },
+    );
+    connections.push((0, 1));
+    connections.push((1, 2));
+    connections.push((1, 3));
+
+    // Falcon Cluster (Atk Speed/Crit) - Top
+    nodes.insert(
+        4,
+        PassiveNode {
+            id: 4,
+            name: "Falcon I".to_string(),
+            effect: PassiveEffect::StatAdd(Stats {
+                attack_speed: 0.1,
+                ..zero_stats
+            }),
+            requirements: vec![0],
+            position: Vec2::new(0.0, 150.0),
+        },
+    );
+    nodes.insert(
+        5,
+        PassiveNode {
+            id: 5,
+            name: "Falcon II".to_string(),
+            effect: PassiveEffect::StatAdd(Stats {
+                crit_chance: 0.05,
+                ..zero_stats
+            }),
+            requirements: vec![4],
+            position: Vec2::new(-50.0, 250.0),
+        },
+    );
+    nodes.insert(
+        6,
+        PassiveNode {
+            id: 6,
+            name: "Falcon III".to_string(),
+            effect: PassiveEffect::StatAdd(Stats {
+                crit_multiplier: 0.5,
+                ..zero_stats
+            }),
+            requirements: vec![4],
+            position: Vec2::new(50.0, 250.0),
+        },
+    );
+    nodes.insert(
+        10,
+        PassiveNode {
+            id: 10,
+            name: "Ricochet".to_string(),
+            effect: PassiveEffect::Ricochet,
+            requirements: vec![4],
+            position: Vec2::new(0.0, 300.0),
+        },
+    );
+    connections.push((0, 4));
+    connections.push((4, 5));
+    connections.push((4, 6));
+    connections.push((4, 10));
+
+    // Arcanist Cluster (Special) - Right
+    nodes.insert(
+        7,
+        PassiveNode {
+            id: 7,
+            name: "Arcanist I".to_string(),
+            effect: PassiveEffect::StatAdd(Stats {
+                damage: 10.0,
+                ..zero_stats
+            }),
+            requirements: vec![0],
+            position: Vec2::new(150.0, 0.0),
+        },
+    );
+    nodes.insert(
+        8,
+        PassiveNode {
+            id: 8,
+            name: "Arcanist II".to_string(),
+            effect: PassiveEffect::Knockback,
+            requirements: vec![7],
+            position: Vec2::new(250.0, 50.0),
+        },
+    );
+    nodes.insert(
+        9,
+        PassiveNode {
+            id: 9,
+            name: "Arcanist III".to_string(),
+            effect: PassiveEffect::Explosion,
+            requirements: vec![7],
+            position: Vec2::new(250.0, -50.0),
+        },
+    );
+    connections.push((0, 7));
+    connections.push((7, 8));
+    connections.push((7, 9));
+
+    commands.insert_resource(PassiveTree { nodes, connections });
 }

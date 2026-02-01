@@ -7,6 +7,7 @@ pub enum GameState {
     CharacterSelection,
     PetSelection,
     Playing,
+    PassiveTree,
     GameOver,
 }
 
@@ -55,7 +56,7 @@ pub struct Shield {
     pub amount: f32,
 }
 
-#[derive(Component, Clone)]
+#[derive(Debug, Component, Clone, Copy, PartialEq)]
 pub struct Stats {
     pub speed: f32,
     pub damage: f32,
@@ -64,6 +65,29 @@ pub struct Stats {
     pub crit_multiplier: f32,
     pub life_regen: f32,
     pub armor: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PassiveEffect {
+    StatAdd(Stats),
+    Ricochet,
+    Explosion,
+    Knockback,
+}
+
+#[derive(Debug, Clone)]
+pub struct PassiveNode {
+    pub id: u32,
+    pub name: String,
+    pub effect: PassiveEffect,
+    pub requirements: Vec<u32>,
+    pub position: Vec2,
+}
+
+#[derive(Component, Default)]
+pub struct PlayerPassives {
+    pub unlocked_nodes: Vec<u32>,
+    pub points: u32,
 }
 
 impl Default for Stats {
@@ -117,6 +141,7 @@ pub struct Projectile {
     pub damage: f32,
     pub owner: Entity,
     pub pierce: u32,
+    pub chain_count: u32,
     pub hit_entities: HashSet<Entity>,
     pub is_crit: bool,
 }
@@ -189,6 +214,9 @@ pub struct GameOverUi;
 
 #[derive(Component)]
 pub struct SelectionUi;
+
+#[derive(Component)]
+pub struct PassiveUi;
 
 #[derive(Component)]
 pub struct ClassButton(pub PlayerClass);

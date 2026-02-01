@@ -11,14 +11,14 @@ pub fn update_projectiles(
     mut projectiles: Query<(
         Entity,
         &mut Transform,
-        &Velocity,
+        &mut Velocity,
         &mut Lifetime,
         &mut Projectile,
     )>,
     enemies: Query<(Entity, &Transform), (With<Enemy>, Without<Projectile>)>,
     mut damage_events: EventWriter<DamageEvent>,
 ) {
-    for (proj_entity, mut transform, velocity, mut lifetime, mut projectile) in
+    for (proj_entity, mut transform, mut velocity, mut lifetime, mut projectile) in
         projectiles.iter_mut()
     {
         transform.translation += (velocity.0 * time.delta_seconds()).extend(0.0);
@@ -31,6 +31,8 @@ pub fn update_projectiles(
 
         let proj_pos = transform.translation.truncate();
 
+        let mut target_enemy = None;
+
         for (enemy_entity, enemy_transform) in enemies.iter() {
             if projectile.hit_entities.contains(&enemy_entity) {
                 continue;
@@ -40,17 +42,55 @@ pub fn update_projectiles(
             let distance = proj_pos.distance(enemy_pos);
 
             if distance < 45.0 {
-                projectile.hit_entities.insert(enemy_entity);
+                target_enemy = Some(enemy_entity);
+                break;
+            }
+        }
 
-                damage_events.send(DamageEvent {
-                    target: enemy_entity,
-                    amount: projectile.damage,
-                    is_crit: projectile.is_crit,
-                });
+        if let Some(enemy_entity) = target_enemy {
+            projectile.hit_entities.insert(enemy_entity);
 
+            damage_events.send(DamageEvent {
+                target: enemy_entity,
+                attacker: Some(projectile.owner),
+                amount: projectile.damage,
+                is_crit: projectile.is_crit,
+            });
+
+            // Ricochet Logic
+            let mut chained = false;
+            if projectile.chain_count > 0 {
+                let mut nearest_enemy = None;
+                let mut min_dist = 200.0;
+
+                for (other_enemy, other_transform) in enemies.iter() {
+                    if projectile.hit_entities.contains(&other_enemy) {
+                        continue;
+                    }
+
+                    let dist = proj_pos.distance(other_transform.translation.truncate());
+                    if dist < min_dist {
+                        min_dist = dist;
+                        nearest_enemy = Some(other_transform.translation.truncate());
+                    }
+                }
+
+                if let Some(target_pos) = nearest_enemy {
+                    let new_dir = (target_pos - proj_pos).normalize_or_zero();
+                    let speed = velocity.0.length();
+                    velocity.0 = new_dir * speed;
+
+                    // Update rotation to face new direction
+                    transform.rotation = Quat::from_rotation_z(new_dir.y.atan2(new_dir.x));
+
+                    projectile.chain_count -= 1;
+                    chained = true;
+                }
+            }
+
+            if !chained {
                 if projectile.pierce == 0 {
                     commands.entity(proj_entity).despawn();
-                    break;
                 } else {
                     projectile.pierce -= 1;
                 }
@@ -89,6 +129,7 @@ pub fn update_melee_attacks(
 
                 damage_events.send(DamageEvent {
                     target: enemy_entity,
+                    attacker: Some(melee.owner),
                     amount: melee.damage,
                     is_crit: melee.is_crit,
                 });
@@ -135,6 +176,7 @@ pub fn update_aoe_effects(
 
                     damage_events.send(DamageEvent {
                         target: enemy_entity,
+                        attacker: Some(aoe.owner),
                         amount: aoe.damage,
                         is_crit: false,
                     });
@@ -150,14 +192,15 @@ pub fn process_damage(
     mut targets: Query<(
         &mut Health,
         Option<&mut Shield>,
-        &Transform,
+        &mut Transform,
         Option<&Stats>,
         Option<&Invulnerable>,
     )>,
+    attackers: Query<(&Transform, &PlayerPassives)>,
     mut game_stats: ResMut<GameStats>,
 ) {
     for event in damage_events.read() {
-        let Ok((mut health, shield, transform, stats, invuln)) = targets.get_mut(event.target)
+        let Ok((mut health, shield, mut transform, stats, invuln)) = targets.get_mut(event.target)
         else {
             continue;
         };
@@ -185,6 +228,18 @@ pub fn process_damage(
 
         health.current -= final_damage;
         game_stats.damage_dealt += event.amount; // Contabiliza dano bruto
+
+        // Knockback
+        if let Some(attacker_entity) = event.attacker {
+            if let Ok((attacker_transform, passives)) = attackers.get(attacker_entity) {
+                if passives.unlocked_nodes.contains(&8) {
+                    let dir = (transform.translation - attacker_transform.translation)
+                        .truncate()
+                        .normalize_or_zero();
+                    transform.translation += (dir * 30.0).extend(0.0);
+                }
+            }
+        }
 
         // Damage number
         let color = if event.is_crit {

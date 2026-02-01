@@ -100,13 +100,14 @@ pub fn player_attack(
             &Transform,
             &Stats,
             &Player,
+            &PlayerPassives,
             &mut AttackCooldown,
             &mut CharacterState,
         ),
         With<Player>,
     >,
 ) {
-    let Ok((player_entity, transform, stats, player, mut cooldown, mut state)) =
+    let Ok((player_entity, transform, stats, player, passives, mut cooldown, mut state)) =
         query.get_single_mut()
     else {
         return;
@@ -192,6 +193,11 @@ pub fn player_attack(
                     } else {
                         0
                     },
+                    chain_count: if passives.unlocked_nodes.contains(&10) {
+                        1
+                    } else {
+                        0
+                    },
                     hit_entities: HashSet::new(),
                     is_crit,
                 },
@@ -229,13 +235,14 @@ pub fn player_skills(
             &mut Transform,
             &Stats,
             &Player,
+            &PlayerPassives,
             &mut SkillCooldowns,
             &mut Shield,
         ),
         With<Player>,
     >,
 ) {
-    let Ok((player_entity, mut transform, stats, player, mut cooldowns, mut shield)) =
+    let Ok((player_entity, mut transform, stats, player, passives, mut cooldowns, mut shield)) =
         query.get_single_mut()
     else {
         return;
@@ -325,6 +332,11 @@ pub fn player_skills(
                             damage: stats.damage * 0.8,
                             owner: player_entity,
                             pierce: 0,
+                            chain_count: if passives.unlocked_nodes.contains(&10) {
+                                1
+                            } else {
+                                0
+                            },
                             hit_entities: HashSet::new(),
                             is_crit: false,
                         },
@@ -442,6 +454,7 @@ pub fn spawn_player(
             Velocity(Vec2::ZERO),
             AttackCooldown(attack_cooldown),
             skill_cooldowns,
+            PlayerPassives::default(),
             CharacterState::Idle,
             SpriteBundle {
                 texture: sprites.soldier_idle.clone(),

@@ -1,5 +1,12 @@
-use crate::components::{PetType, PlayerClass};
+use crate::components::{PassiveNode, PetType, PlayerClass};
 use bevy::prelude::*;
+use std::collections::HashMap;
+
+#[derive(Resource, Default)]
+pub struct PassiveTree {
+    pub nodes: HashMap<u32, PassiveNode>,
+    pub connections: Vec<(u32, u32)>,
+}
 
 #[derive(Resource, Default)]
 pub struct PendingSelection {

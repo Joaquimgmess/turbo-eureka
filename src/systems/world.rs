@@ -46,12 +46,12 @@ pub fn collect_xp(
     time: Res<Time>,
     player_query: Query<(&Transform, Entity), With<Player>>,
     mut xp_orbs: Query<(Entity, &mut Transform, &XpOrb, &mut Lifetime), Without<Player>>,
-    mut levels: Query<(&mut Level, &mut Stats, &mut Health)>,
+    mut levels: Query<(&mut Level, &mut Stats, &mut Health, &mut PlayerPassives)>,
 ) {
     let Ok((player_transform, player_entity)) = player_query.get_single() else {
         return;
     };
-    let Ok((mut level, mut stats, mut health)) = levels.get_mut(player_entity) else {
+    let Ok((mut level, mut stats, mut health, mut passives)) = levels.get_mut(player_entity) else {
         return;
     };
 
@@ -85,6 +85,8 @@ pub fn collect_xp(
 
                 health.max *= 1.12;
                 health.current = health.max;
+
+                passives.points += 1;
             }
 
             commands.entity(orb_entity).despawn();

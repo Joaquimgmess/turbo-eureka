@@ -64,12 +64,12 @@ pub fn update_pets(
 
 pub fn pet_actions(
     time: Res<Time>,
-    mut pet_query: Query<(&Transform, &mut Pet)>,
+    mut pet_query: Query<(Entity, &Transform, &mut Pet)>,
     mut owner_query: Query<(&mut Health, &mut Stats), With<Player>>,
     enemy_query: Query<(Entity, &Transform), With<Enemy>>,
     mut damage_events: EventWriter<DamageEvent>,
 ) {
-    for (transform, mut pet) in pet_query.iter_mut() {
+    for (pet_entity, transform, mut pet) in pet_query.iter_mut() {
         pet.action_timer.tick(time.delta());
 
         if pet.action_timer.just_finished() {
@@ -96,6 +96,7 @@ pub fn pet_actions(
                     if let Some((target, _)) = nearest {
                         damage_events.send(DamageEvent {
                             target,
+                            attacker: Some(pet_entity),
                             amount: 10.0,
                             is_crit: false,
                         });
