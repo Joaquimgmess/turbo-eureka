@@ -33,7 +33,7 @@ pub fn enemy_ai(
         let to_target = target_pos - enemy_pos;
         let distance = to_target.length();
 
-        if distance > 35.0 {
+        if distance > 60.0 {
             let direction = to_target.normalize();
             transform.translation += (direction * enemy.speed * time.delta_seconds()).extend(0.0);
 
@@ -74,7 +74,7 @@ pub fn enemy_attack(
         let enemy_pos = transform.translation.truncate();
         let distance = enemy_pos.distance(player_pos);
 
-        if distance < 45.0 && enemy.attack_cooldown.finished() {
+        if distance < 65.0 && enemy.attack_cooldown.finished() {
             enemy.attack_cooldown = Timer::from_seconds(1.0, TimerMode::Once);
             *state = CharacterState::Attacking;
 
@@ -124,9 +124,9 @@ pub fn spawn_enemies(
 
     let enemy_type = rng.gen_range(0..3);
     let (size, color, health, damage, xp, speed) = match enemy_type {
-        0 => (Vec2::new(100.0, 100.0), Color::WHITE, 35.0, 10.0, 12, 85.0),
+        0 => (Vec2::new(170.0, 170.0), Color::WHITE, 35.0, 10.0, 12, 85.0),
         1 => (
-            Vec2::new(130.0, 130.0),
+            Vec2::new(220.0, 220.0),
             Color::srgb(1.0, 0.6, 0.6), // Reddish
             70.0,
             15.0,
@@ -134,7 +134,7 @@ pub fn spawn_enemies(
             60.0,
         ),
         _ => (
-            Vec2::new(80.0, 80.0),
+            Vec2::new(140.0, 140.0),
             Color::srgb(0.6, 0.4, 0.9), // Purpleish
             22.0,
             18.0,
@@ -187,7 +187,7 @@ pub fn spawn_enemies(
                     custom_size: Some(Vec2::new(size.x + 8.0, 5.0)),
                     ..default()
                 },
-                transform: Transform::from_xyz(0.0, size.y / 2.0 + 10.0, 0.1),
+                transform: Transform::from_xyz(0.0, size.y / 2.0 + 15.0, 0.1),
                 ..default()
             },
             HealthBar,
@@ -200,7 +200,7 @@ pub fn spawn_enemies(
                     custom_size: Some(Vec2::new(size.x + 6.0, 3.0)),
                     ..default()
                 },
-                transform: Transform::from_xyz(0.0, size.y / 2.0 + 10.0, 0.2),
+                transform: Transform::from_xyz(0.0, size.y / 2.0 + 15.0, 0.2),
                 ..default()
             },
             HealthBarFill(size.x + 6.0),

@@ -39,7 +39,7 @@ pub fn update_projectiles(
             let enemy_pos = enemy_transform.translation.truncate();
             let distance = proj_pos.distance(enemy_pos);
 
-            if distance < 28.0 {
+            if distance < 45.0 {
                 projectile.hit_entities.insert(enemy_entity);
 
                 damage_events.send(DamageEvent {
@@ -84,7 +84,7 @@ pub fn update_melee_attacks(
             let enemy_pos = enemy_transform.translation.truncate();
             let distance = melee_pos.distance(enemy_pos);
 
-            if distance < 65.0 {
+            if distance < 95.0 {
                 melee.hit_entities.insert(enemy_entity);
 
                 damage_events.send(DamageEvent {
@@ -254,12 +254,12 @@ pub fn spawn_melee_attack(
     let mut rng = rand::thread_rng();
     let is_crit = rng.r#gen::<f32>() < 0.1; // Simplificado para o helper, mas idealmente passaria crit_chance
     let melee_damage = damage * 1.8;
-    let spawn_pos = player_pos + direction * 45.0;
+    let spawn_pos = player_pos + direction * 75.0;
 
     let (size, color) = if is_tank {
-        (Vec2::new(120.0, 100.0), Color::srgba(0.2, 0.5, 1.0, 0.7))
+        (Vec2::new(220.0, 180.0), Color::srgba(0.2, 0.5, 1.0, 0.7))
     } else {
-        (Vec2::new(90.0, 70.0), Color::srgba(0.9, 0.4, 0.1, 0.7))
+        (Vec2::new(160.0, 120.0), Color::srgba(0.9, 0.4, 0.1, 0.7))
     };
 
     commands.spawn((

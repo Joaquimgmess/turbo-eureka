@@ -447,7 +447,7 @@ pub fn spawn_player(
                 texture: sprites.soldier_idle.clone(),
                 sprite: Sprite {
                     color: body_color,
-                    custom_size: Some(Vec2::new(110.0, 110.0)),
+                    custom_size: Some(Vec2::new(180.0, 180.0)),
                     ..default()
                 },
                 transform: Transform::from_translation(position.truncate().extend(10.0)),
@@ -474,7 +474,7 @@ pub fn spawn_player(
                     custom_size: Some(Vec2::new(50.0, 8.0)),
                     ..default()
                 },
-                transform: Transform::from_xyz(0.0, 50.0, 0.1),
+                transform: Transform::from_xyz(0.0, 95.0, 0.1),
                 ..default()
             },
             HealthBar,
@@ -488,7 +488,7 @@ pub fn spawn_player(
                     custom_size: Some(Vec2::new(48.0, 6.0)),
                     ..default()
                 },
-                transform: Transform::from_xyz(0.0, 50.0, 0.2),
+                transform: Transform::from_xyz(0.0, 95.0, 0.2),
                 ..default()
             },
             HealthBarFill(48.0),
