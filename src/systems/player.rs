@@ -9,9 +9,9 @@ pub fn player_movement(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     cursor_pos: Res<CursorWorldPos>,
-    mut query: Query<(&mut Transform, &Stats, Option<&Dash>), With<Player>>,
+    mut query: Query<(&mut Transform, &Stats, Option<&Dash>, &mut CharacterState), With<Player>>,
 ) {
-    let Ok((mut transform, stats, dash)) = query.get_single_mut() else {
+    let Ok((mut transform, stats, dash, mut state)) = query.get_single_mut() else {
         return;
     };
 
@@ -36,6 +36,11 @@ pub fn player_movement(
     if direction.length_squared() > 0.0 {
         direction = direction.normalize();
         transform.translation += (direction * stats.speed * time.delta_seconds()).extend(0.0);
+        if *state != CharacterState::Attacking {
+            *state = CharacterState::Walking;
+        }
+    } else if *state != CharacterState::Attacking {
+        *state = CharacterState::Idle;
     }
 
     // Rotação para cursor
@@ -89,13 +94,29 @@ pub fn player_attack(
     time: Res<Time>,
     asset_server: Res<AssetServer>,
     cursor_pos: Res<CursorWorldPos>,
-    mut query: Query<(Entity, &Transform, &Stats, &Player, &mut AttackCooldown), With<Player>>,
+    mut query: Query<
+        (
+            Entity,
+            &Transform,
+            &Stats,
+            &Player,
+            &mut AttackCooldown,
+            &mut CharacterState,
+        ),
+        With<Player>,
+    >,
 ) {
-    let Ok((player_entity, transform, stats, player, mut cooldown)) = query.get_single_mut() else {
+    let Ok((player_entity, transform, stats, player, mut cooldown, mut state)) =
+        query.get_single_mut()
+    else {
         return;
     };
 
     cooldown.0.tick(time.delta());
+
+    if cooldown.0.finished() && *state == CharacterState::Attacking {
+        *state = CharacterState::Idle;
+    }
 
     if !cooldown.0.finished() {
         return;
@@ -114,6 +135,7 @@ pub fn player_attack(
 
     // LMB - Ataque (Projetil ou Melee para Tank)
     if mouse.pressed(MouseButton::Left) {
+        *state = CharacterState::Attacking;
         if player.class == PlayerClass::Tank {
             // Tank usa o ataque melee no LMB também, já que não tem projétil
             spawn_melee_attack(
@@ -181,6 +203,7 @@ pub fn player_attack(
 
     // RMB - Melee (Sempre disponível, mas Tank é o foco)
     if mouse.pressed(MouseButton::Right) {
+        *state = CharacterState::Attacking;
         spawn_melee_attack(
             &mut commands,
             player_entity,
@@ -353,7 +376,7 @@ pub fn player_skills(
 
 pub fn spawn_player(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
+    sprites: &Res<CharacterSprites>,
     position: Vec3,
     class: PlayerClass,
 ) -> Entity {
@@ -402,6 +425,13 @@ pub fn spawn_player(
         }
     }
 
+    let body_color = match class {
+        PlayerClass::Tank => Color::srgb(1.0, 1.0, 1.0), // White (no tint)
+        PlayerClass::Archer => Color::srgb(0.8, 0.7, 0.2),
+        PlayerClass::Mage => Color::srgb(0.6, 0.2, 0.8),
+        PlayerClass::Tamer => Color::srgb(0.2, 0.8, 0.3),
+    };
+
     let player_entity = commands
         .spawn((
             Player { class },
@@ -412,37 +442,30 @@ pub fn spawn_player(
             Velocity(Vec2::ZERO),
             AttackCooldown(attack_cooldown),
             skill_cooldowns,
-            SpatialBundle::from_transform(Transform::from_translation(
-                position.truncate().extend(10.0),
-            )),
+            CharacterState::Idle,
+            SpriteBundle {
+                texture: sprites.soldier_idle.clone(),
+                sprite: Sprite {
+                    color: body_color,
+                    custom_size: Some(Vec2::new(110.0, 110.0)),
+                    ..default()
+                },
+                transform: Transform::from_translation(position.truncate().extend(10.0)),
+                ..default()
+            },
+            TextureAtlas {
+                layout: sprites.layout.clone(),
+                index: 0,
+            },
+            AnimationConfig {
+                timer: Timer::from_seconds(0.1, TimerMode::Repeating),
+                frame_count: 6,
+                state: CharacterState::Idle,
+            },
         ))
         .id();
 
-    let texture = match class {
-        PlayerClass::Tank => asset_server.load("sprites/soldier/idle.png"),
-        _ => asset_server.load("sprites/soldier/idle.png"),
-    };
-
-    let body_color = match class {
-        PlayerClass::Tank => Color::srgb(1.0, 1.0, 1.0), // White (no tint)
-        PlayerClass::Archer => Color::srgb(0.8, 0.7, 0.2),
-        PlayerClass::Mage => Color::srgb(0.6, 0.2, 0.8),
-        PlayerClass::Tamer => Color::srgb(0.2, 0.8, 0.3),
-    };
-
     commands.entity(player_entity).with_children(|parent| {
-        // Corpo (agora usando a sprite do soldado)
-        parent.spawn(SpriteBundle {
-            texture,
-            sprite: Sprite {
-                color: body_color,
-                custom_size: Some(Vec2::new(64.0, 64.0)),
-                rect: Some(Rect::new(0.0, 0.0, 100.0, 100.0)),
-                ..default()
-            },
-            ..default()
-        });
-
         // Health bar background
         parent.spawn((
             SpriteBundle {
@@ -451,7 +474,7 @@ pub fn spawn_player(
                     custom_size: Some(Vec2::new(50.0, 8.0)),
                     ..default()
                 },
-                transform: Transform::from_xyz(0.0, 40.0, 0.1),
+                transform: Transform::from_xyz(0.0, 50.0, 0.1),
                 ..default()
             },
             HealthBar,
@@ -465,7 +488,7 @@ pub fn spawn_player(
                     custom_size: Some(Vec2::new(48.0, 6.0)),
                     ..default()
                 },
-                transform: Transform::from_xyz(0.0, 40.0, 0.2),
+                transform: Transform::from_xyz(0.0, 50.0, 0.2),
                 ..default()
             },
             HealthBarFill(48.0),

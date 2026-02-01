@@ -374,11 +374,11 @@ pub fn despawn_selection_ui(mut commands: Commands, query: Query<Entity, With<Se
 
 pub fn start_game(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    sprites: Res<CharacterSprites>,
     mut pending: ResMut<PendingSelection>,
 ) {
     let class = pending.class.unwrap_or(PlayerClass::Tank);
-    let player_entity = spawn_player(&mut commands, &asset_server, Vec3::ZERO, class);
+    let player_entity = spawn_player(&mut commands, &sprites, Vec3::ZERO, class);
 
     if class == PlayerClass::Tamer {
         for pet_type in pending.pets.iter() {

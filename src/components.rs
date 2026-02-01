@@ -203,5 +203,21 @@ pub struct Pet {
     pub action_timer: Timer,
 }
 
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CharacterState {
+    #[default]
+    Idle,
+    Walking,
+    Attacking,
+    Death,
+}
+
+#[derive(Component)]
+pub struct AnimationConfig {
+    pub timer: Timer,
+    pub frame_count: usize,
+    pub state: CharacterState,
+}
+
 #[derive(Component)]
 pub struct Taunt;

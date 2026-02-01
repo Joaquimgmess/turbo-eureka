@@ -7,6 +7,17 @@ pub struct PendingSelection {
     pub pets: Vec<PetType>,
 }
 
+#[derive(Resource)]
+pub struct CharacterSprites {
+    pub orc_idle: Handle<Image>,
+    pub orc_walk: Handle<Image>,
+    pub orc_attack: Handle<Image>,
+    pub soldier_idle: Handle<Image>,
+    pub soldier_walk: Handle<Image>,
+    pub soldier_attack: Handle<Image>,
+    pub layout: Handle<TextureAtlasLayout>,
+}
+
 #[derive(Resource, Default)]
 pub struct CursorWorldPos(pub Vec2);
 

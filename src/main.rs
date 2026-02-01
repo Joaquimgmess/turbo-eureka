@@ -19,7 +19,7 @@ use bevy::prelude::*;
 use components::*;
 use events::*;
 use resources::*;
-use systems::{combat::*, enemy::*, pets::*, player::*, ui::*, world::*};
+use systems::{animation::*, combat::*, enemy::*, pets::*, player::*, ui::*, world::*};
 
 fn main() {
     App::new()
@@ -60,6 +60,8 @@ fn main() {
             Update,
             (
                 update_cursor_world_pos,
+                animate_sprite,
+                update_character_animation_texture,
                 player_movement,
                 player_attack,
                 player_skills,
@@ -68,6 +70,12 @@ fn main() {
                 regen_health,
                 update_projectiles,
                 update_melee_attacks,
+            )
+                .run_if(in_state(GameState::Playing)),
+        )
+        .add_systems(
+            Update,
+            (
                 update_aoe_effects,
                 enemy_ai,
                 enemy_attack,
@@ -97,7 +105,25 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+) {
+    // Layout para spritesheets de 6x1 (100x100 pixels por frame)
+    let layout = TextureAtlasLayout::from_grid(UVec2::splat(100), 6, 1, None, None);
+    let layout_handle = texture_atlases.add(layout);
+
+    commands.insert_resource(CharacterSprites {
+        orc_idle: asset_server.load("sprites/orc/idle.png"),
+        orc_walk: asset_server.load("sprites/orc/walk.png"),
+        orc_attack: asset_server.load("sprites/orc/attack1.png"),
+        soldier_idle: asset_server.load("sprites/soldier/idle.png"),
+        soldier_walk: asset_server.load("sprites/soldier/walk.png"),
+        soldier_attack: asset_server.load("sprites/soldier/attack1.png"),
+        layout: layout_handle,
+    });
+
     // Camera
     commands.spawn(Camera2dBundle::default());
 
