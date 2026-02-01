@@ -28,9 +28,27 @@ fn main() {
         .insert_resource(ClearColor(Color::srgb(0.1, 0.1, 0.12)))
         .insert_resource(CursorWorldPos(Vec2::ZERO))
         .insert_resource(GameStats::default())
+        .insert_resource(PendingSelection::default())
         .add_event::<DamageEvent>()
         .add_event::<SpawnXpOrbEvent>()
         .add_systems(Startup, setup)
+        // Sistemas de Seleção
+        .add_systems(
+            OnEnter(GameState::CharacterSelection),
+            setup_class_selection,
+        )
+        .add_systems(
+            Update,
+            handle_class_selection.run_if(in_state(GameState::CharacterSelection)),
+        )
+        .add_systems(OnExit(GameState::CharacterSelection), despawn_selection_ui)
+        .add_systems(OnEnter(GameState::PetSelection), setup_pet_selection)
+        .add_systems(
+            Update,
+            handle_pet_selection.run_if(in_state(GameState::PetSelection)),
+        )
+        .add_systems(OnExit(GameState::PetSelection), despawn_selection_ui)
+        .add_systems(OnEnter(GameState::Playing), start_game)
         .add_systems(
             Update,
             (
@@ -52,6 +70,8 @@ fn main() {
                 update_xp_orbs,
                 collect_xp,
                 spawn_enemies,
+                update_pets,
+                pet_actions,
             )
                 .run_if(in_state(GameState::Playing)),
         )
@@ -77,8 +97,26 @@ fn main() {
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 enum GameState {
     #[default]
+    CharacterSelection,
+    PetSelection,
     Playing,
     GameOver,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PlayerClass {
+    Tank,
+    Archer,
+    Mage,
+    Tamer,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PetType {
+    Healer,
+    Damager,
+    Buffer,
+    Tanker,
 }
 
 // ============================================================================
@@ -86,7 +124,14 @@ enum GameState {
 // ============================================================================
 
 #[derive(Component)]
-struct Player;
+struct Player {
+    class: PlayerClass,
+}
+
+#[derive(Component)]
+struct TamerData {
+    selected_pets: Vec<PetType>,
+}
 
 #[derive(Component)]
 struct Enemy {
@@ -234,6 +279,31 @@ struct StatsUi;
 #[derive(Component)]
 struct GameOverUi;
 
+#[derive(Resource, Default)]
+struct PendingSelection {
+    class: Option<PlayerClass>,
+    pets: Vec<PetType>,
+}
+
+#[derive(Component)]
+struct SelectionUi;
+
+#[derive(Component)]
+struct ClassButton(PlayerClass);
+
+#[derive(Component)]
+struct PetButton(PetType);
+
+#[derive(Component)]
+struct Pet {
+    owner: Entity,
+    pet_type: PetType,
+    action_timer: Timer,
+}
+
+#[derive(Component)]
+struct Taunt;
+
 // ============================================================================
 // RECURSOS
 // ============================================================================
@@ -286,7 +356,8 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 
     // Player
-    spawn_player(&mut commands, Vec3::ZERO);
+    // Retirado do setup pois agora o player nasce após a seleção
+    // spawn_player(&mut commands, Vec3::ZERO, PlayerClass::Tank);
 
     // UI - Cooldowns
     commands.spawn((
@@ -389,33 +460,77 @@ fn setup(mut commands: Commands) {
     );
 }
 
-fn spawn_player(commands: &mut Commands, position: Vec3) {
+fn spawn_player(commands: &mut Commands, position: Vec3, class: PlayerClass) -> Entity {
+    let mut stats = Stats::default();
+    let mut health = Health {
+        current: 100.0,
+        max: 100.0,
+    };
+    let mut attack_cooldown = Timer::from_seconds(0.3, TimerMode::Once);
+    let mut skill_cooldowns = SkillCooldowns {
+        dash: Timer::from_seconds(2.0, TimerMode::Once),
+        nova: Timer::from_seconds(5.0, TimerMode::Once),
+    };
+
+    match class {
+        PlayerClass::Tank => {
+            health.max = 200.0;
+            health.current = 200.0;
+            stats.armor = 50.0;
+            stats.speed = 170.0;
+            stats.damage = 30.0;
+            stats.life_regen = 5.0;
+        }
+        PlayerClass::Archer => {
+            health.max = 80.0;
+            health.current = 80.0;
+            stats.speed = 240.0;
+            stats.attack_speed = 1.6;
+            stats.damage = 18.0;
+            attack_cooldown = Timer::from_seconds(0.15, TimerMode::Once);
+        }
+        PlayerClass::Mage => {
+            health.max = 70.0;
+            health.current = 70.0;
+            stats.damage = 65.0;
+            stats.attack_speed = 0.7;
+            skill_cooldowns.nova = Timer::from_seconds(3.5, TimerMode::Once);
+            attack_cooldown = Timer::from_seconds(0.6, TimerMode::Once);
+        }
+        PlayerClass::Tamer => {
+            health.max = 110.0;
+            health.current = 110.0;
+            stats.speed = 210.0;
+        }
+    }
+
     let player_entity = commands
         .spawn((
-            Player,
-            Health {
-                current: 100.0,
-                max: 100.0,
-            },
-            Stats::default(),
+            Player { class },
+            health,
+            stats,
             Level::new(),
             Velocity(Vec2::ZERO),
-            AttackCooldown(Timer::from_seconds(0.3, TimerMode::Once)),
-            SkillCooldowns {
-                dash: Timer::from_seconds(2.0, TimerMode::Once),
-                nova: Timer::from_seconds(5.0, TimerMode::Once),
-            },
+            AttackCooldown(attack_cooldown),
+            skill_cooldowns,
             SpatialBundle::from_transform(Transform::from_translation(
                 position.truncate().extend(10.0),
             )),
         ))
         .id();
 
+    let body_color = match class {
+        PlayerClass::Tank => Color::srgb(0.2, 0.4, 0.8),
+        PlayerClass::Archer => Color::srgb(0.8, 0.7, 0.2),
+        PlayerClass::Mage => Color::srgb(0.6, 0.2, 0.8),
+        PlayerClass::Tamer => Color::srgb(0.2, 0.8, 0.3),
+    };
+
     commands.entity(player_entity).with_children(|parent| {
-        // Corpo (retângulo verde)
+        // Corpo
         parent.spawn(SpriteBundle {
             sprite: Sprite {
-                color: Color::srgb(0.2, 0.8, 0.3),
+                color: body_color,
                 custom_size: Some(Vec2::new(28.0, 36.0)),
                 ..default()
             },
@@ -461,8 +576,12 @@ fn spawn_player(commands: &mut Commands, position: Vec3) {
             HealthBarFill(40.0),
         ));
     });
+
+    player_entity
 }
 
+// ============================================================================
+// SISTEMAS - INPUT E MOVIMENTO
 // ============================================================================
 // SISTEMAS - INPUT E MOVIMENTO
 // ============================================================================
@@ -574,9 +693,9 @@ fn player_attack(
     mouse: Res<ButtonInput<MouseButton>>,
     time: Res<Time>,
     cursor_pos: Res<CursorWorldPos>,
-    mut query: Query<(Entity, &Transform, &Stats, &mut AttackCooldown), With<Player>>,
+    mut query: Query<(Entity, &Transform, &Stats, &Player, &mut AttackCooldown), With<Player>>,
 ) {
-    let Ok((player_entity, transform, stats, mut cooldown)) = query.get_single_mut() else {
+    let Ok((player_entity, transform, stats, player, mut cooldown)) = query.get_single_mut() else {
         return;
     };
 
@@ -602,6 +721,11 @@ fn player_attack(
         cooldown.0 = Timer::from_seconds(0.25 / stats.attack_speed, TimerMode::Once);
 
         let spawn_pos = player_pos + direction * 30.0;
+        let proj_color = match player.class {
+            PlayerClass::Mage => Color::srgb(0.6, 0.3, 1.0),
+            PlayerClass::Archer => Color::srgb(0.9, 0.9, 0.4),
+            _ => Color::srgb(1.0, 0.7, 0.1),
+        };
 
         commands.spawn((
             SpriteBundle {
@@ -609,7 +733,7 @@ fn player_attack(
                     color: if is_crit {
                         Color::srgb(1.0, 1.0, 0.2)
                     } else {
-                        Color::srgb(1.0, 0.7, 0.1)
+                        proj_color
                     },
                     custom_size: Some(Vec2::new(14.0, 14.0)),
                     ..default()
@@ -620,7 +744,11 @@ fn player_attack(
             Projectile {
                 damage,
                 owner: player_entity,
-                pierce: 0,
+                pierce: if player.class == PlayerClass::Archer {
+                    1
+                } else {
+                    0
+                },
                 hit_entities: HashSet::new(),
                 is_crit,
             },
@@ -636,15 +764,21 @@ fn player_attack(
         let melee_damage = damage * 1.8;
         let spawn_pos = player_pos + direction * 45.0;
 
+        let (size, color) = if player.class == PlayerClass::Tank {
+            (Vec2::new(120.0, 100.0), Color::srgba(0.2, 0.5, 1.0, 0.7))
+        } else {
+            (Vec2::new(90.0, 70.0), Color::srgba(0.9, 0.4, 0.1, 0.7))
+        };
+
         commands.spawn((
             SpriteBundle {
                 sprite: Sprite {
                     color: if is_crit {
                         Color::srgba(1.0, 0.6, 0.0, 0.85)
                     } else {
-                        Color::srgba(0.9, 0.4, 0.1, 0.7)
+                        color
                     },
-                    custom_size: Some(Vec2::new(90.0, 70.0)),
+                    custom_size: Some(size),
                     ..default()
                 },
                 transform: Transform::from_translation(spawn_pos.extend(4.0))
@@ -667,9 +801,10 @@ fn player_skills(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     cursor_pos: Res<CursorWorldPos>,
-    mut query: Query<(Entity, &Transform, &Stats, &mut SkillCooldowns), With<Player>>,
+    mut query: Query<(Entity, &mut Transform, &Stats, &Player, &mut SkillCooldowns), With<Player>>,
 ) {
-    let Ok((player_entity, transform, stats, mut cooldowns)) = query.get_single_mut() else {
+    let Ok((player_entity, mut transform, stats, player, mut cooldowns)) = query.get_single_mut()
+    else {
         return;
     };
 
@@ -694,28 +829,107 @@ fn player_skills(
         ));
     }
 
-    // Space - Nova
+    // Space - Nova (Skill Especial)
     if keyboard.just_pressed(KeyCode::Space) && cooldowns.nova.finished() {
-        cooldowns.nova = Timer::from_seconds(5.0, TimerMode::Once);
+        cooldowns.nova = Timer::from_seconds(
+            match player.class {
+                PlayerClass::Mage => 3.0,
+                PlayerClass::Tank => 8.0,
+                _ => 5.0,
+            },
+            TimerMode::Once,
+        );
 
-        commands.spawn((
-            SpriteBundle {
-                sprite: Sprite {
-                    color: Color::srgba(1.0, 0.35, 0.0, 0.45),
-                    custom_size: Some(Vec2::splat(220.0)),
-                    ..default()
-                },
-                transform: Transform::from_translation(player_pos.extend(3.0)),
-                ..default()
-            },
-            AoeEffect {
-                damage: stats.damage * 0.6,
-                owner: player_entity,
-                tick_timer: Timer::from_seconds(0.25, TimerMode::Repeating),
-                duration: Timer::from_seconds(3.0, TimerMode::Once),
-                hit_this_tick: HashSet::new(),
-            },
-        ));
+        match player.class {
+            PlayerClass::Tank => {
+                // Iron Skin
+                commands
+                    .entity(player_entity)
+                    .insert(Invulnerable(Timer::from_seconds(2.0, TimerMode::Once)));
+                // Visual effect for Iron Skin
+                commands.spawn((
+                    SpriteBundle {
+                        sprite: Sprite {
+                            color: Color::srgba(0.5, 0.5, 1.0, 0.4),
+                            custom_size: Some(Vec2::splat(60.0)),
+                            ..default()
+                        },
+                        transform: Transform::from_translation(player_pos.extend(3.0)),
+                        ..default()
+                    },
+                    Lifetime(Timer::from_seconds(2.0, TimerMode::Once)),
+                ));
+            }
+            PlayerClass::Archer => {
+                // Vault: Dash backwards and shoot
+                let direction = (player_pos - cursor_pos.0).normalize_or_zero();
+                commands.entity(player_entity).insert(Dash {
+                    direction,
+                    speed: 1200.0,
+                    duration: Timer::from_seconds(0.15, TimerMode::Once),
+                });
+                // Shoot 3 arrows
+                for i in -1..=1 {
+                    let angle = (i as f32) * 0.2;
+                    let shoot_dir = Quat::from_rotation_z(angle) * (-direction).extend(0.0);
+                    commands.spawn((
+                        SpriteBundle {
+                            sprite: Sprite {
+                                color: Color::srgb(1.0, 1.0, 0.5),
+                                custom_size: Some(Vec2::new(10.0, 10.0)),
+                                ..default()
+                            },
+                            transform: Transform::from_translation(player_pos.extend(5.0)),
+                            ..default()
+                        },
+                        Projectile {
+                            damage: stats.damage * 0.8,
+                            owner: player_entity,
+                            pierce: 0,
+                            hit_entities: HashSet::new(),
+                            is_crit: false,
+                        },
+                        Velocity(shoot_dir.truncate() * 700.0),
+                        Lifetime(Timer::from_seconds(1.0, TimerMode::Once)),
+                    ));
+                }
+            }
+            PlayerClass::Mage => {
+                // Teleport
+                let direction = (cursor_pos.0 - player_pos).normalize_or_zero();
+                let target = player_pos + direction * 200.0;
+                transform.translation = target.extend(10.0);
+
+                // Visual effect
+                commands.spawn((
+                    SpriteBundle {
+                        sprite: Sprite {
+                            color: Color::srgba(0.8, 0.2, 1.0, 0.6),
+                            custom_size: Some(Vec2::splat(100.0)),
+                            ..default()
+                        },
+                        transform: Transform::from_translation(player_pos.extend(3.0)),
+                        ..default()
+                    },
+                    Lifetime(Timer::from_seconds(0.3, TimerMode::Once)),
+                ));
+            }
+            PlayerClass::Tamer => {
+                // Command: No specific logic here yet, but could buff pets
+                commands.spawn((
+                    SpriteBundle {
+                        sprite: Sprite {
+                            color: Color::srgba(0.2, 1.0, 0.3, 0.3),
+                            custom_size: Some(Vec2::splat(300.0)),
+                            ..default()
+                        },
+                        transform: Transform::from_translation(player_pos.extend(3.0)),
+                        ..default()
+                    },
+                    Lifetime(Timer::from_seconds(0.5, TimerMode::Once)),
+                ));
+            }
+        }
     }
 }
 
@@ -948,6 +1162,7 @@ fn update_damage_numbers(
 fn enemy_ai(
     time: Res<Time>,
     player_query: Query<&Transform, With<Player>>,
+    taunt_query: Query<&Transform, (With<Taunt>, Without<Enemy>, Without<Player>)>,
     mut enemies: Query<(&mut Transform, &Enemy), Without<Player>>,
 ) {
     let Ok(player_transform) = player_query.get_single() else {
@@ -957,11 +1172,24 @@ fn enemy_ai(
 
     for (mut transform, enemy) in enemies.iter_mut() {
         let enemy_pos = transform.translation.truncate();
-        let to_player = player_pos - enemy_pos;
-        let distance = to_player.length();
+
+        // Prioriza alvos com Taunt se estiverem próximos
+        let mut target_pos = player_pos;
+        let mut min_dist = enemy_pos.distance(player_pos);
+
+        for taunt_transform in taunt_query.iter() {
+            let dist = enemy_pos.distance(taunt_transform.translation.truncate());
+            if dist < 300.0 && dist < min_dist {
+                min_dist = dist;
+                target_pos = taunt_transform.translation.truncate();
+            }
+        }
+
+        let to_target = target_pos - enemy_pos;
+        let distance = to_target.length();
 
         if distance > 35.0 {
-            let direction = to_player.normalize();
+            let direction = to_target.normalize();
             transform.translation += (direction * enemy.speed * time.delta_seconds()).extend(0.0);
         }
     }
@@ -1385,9 +1613,339 @@ fn restart_game(
         *game_stats = GameStats::default();
 
         if *current_state.get() == GameState::GameOver {
-            next_state.set(GameState::Playing);
+            next_state.set(GameState::CharacterSelection);
+        } else {
+            next_state.set(GameState::CharacterSelection);
         }
+    }
+}
 
-        spawn_player(&mut commands, Vec3::ZERO);
+// ============================================================================
+// SISTEMAS - SELEÇÃO
+// ============================================================================
+
+fn setup_class_selection(mut commands: Commands) {
+    commands
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                ..default()
+            },
+            SelectionUi,
+        ))
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "ESCOLHA SUA CLASSE",
+                TextStyle {
+                    font_size: 40.0,
+                    color: Color::WHITE,
+                    ..default()
+                },
+            ));
+
+            let classes = [
+                (PlayerClass::Tank, "TANK (Defesa/AoE)"),
+                (PlayerClass::Archer, "ARCHER (Velocidade/Range)"),
+                (PlayerClass::Mage, "MAGE (Alto Dano/CD)"),
+                (PlayerClass::Tamer, "TAMER (Domador de Pets)"),
+            ];
+
+            for (class, label) in classes {
+                parent
+                    .spawn((
+                        ButtonBundle {
+                            style: Style {
+                                width: Val::Px(300.0),
+                                height: Val::Px(50.0),
+                                margin: UiRect::all(Val::Px(10.0)),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            background_color: Color::srgb(0.2, 0.2, 0.2).into(),
+                            ..default()
+                        },
+                        ClassButton(class),
+                    ))
+                    .with_children(|p| {
+                        p.spawn(TextBundle::from_section(
+                            label,
+                            TextStyle {
+                                font_size: 20.0,
+                                color: Color::WHITE,
+                                ..default()
+                            },
+                        ));
+                    });
+            }
+        });
+}
+
+fn handle_class_selection(
+    mut next_state: ResMut<NextState<GameState>>,
+    mut pending: ResMut<PendingSelection>,
+    mut interaction_query: Query<
+        (&Interaction, &ClassButton, &mut BackgroundColor),
+        (Changed<Interaction>, With<Button>),
+    >,
+) {
+    for (interaction, class_btn, mut color) in interaction_query.iter_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                pending.class = Some(class_btn.0);
+                if class_btn.0 == PlayerClass::Tamer {
+                    next_state.set(GameState::PetSelection);
+                } else {
+                    next_state.set(GameState::Playing);
+                }
+            }
+            Interaction::Hovered => {
+                *color = Color::srgb(0.4, 0.4, 0.4).into();
+            }
+            Interaction::None => {
+                *color = Color::srgb(0.2, 0.2, 0.2).into();
+            }
+        }
+    }
+}
+
+fn setup_pet_selection(mut commands: Commands) {
+    commands
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                ..default()
+            },
+            SelectionUi,
+        ))
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "ESCOLHA 2 PETS",
+                TextStyle {
+                    font_size: 40.0,
+                    color: Color::WHITE,
+                    ..default()
+                },
+            ));
+
+            let pets = [
+                (PetType::Healer, "CURA (Regen HP)"),
+                (PetType::Damager, "DANO (Ataca Inimigos)"),
+                (PetType::Buffer, "BUFF (Escudo/Dano)"),
+                (PetType::Tanker, "TANK (Atrai Agro)"),
+            ];
+
+            for (pet, label) in pets {
+                parent
+                    .spawn((
+                        ButtonBundle {
+                            style: Style {
+                                width: Val::Px(300.0),
+                                height: Val::Px(50.0),
+                                margin: UiRect::all(Val::Px(10.0)),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            background_color: Color::srgb(0.2, 0.2, 0.2).into(),
+                            ..default()
+                        },
+                        PetButton(pet),
+                    ))
+                    .with_children(|p| {
+                        p.spawn(TextBundle::from_section(
+                            label,
+                            TextStyle {
+                                font_size: 20.0,
+                                color: Color::WHITE,
+                                ..default()
+                            },
+                        ));
+                    });
+            }
+        });
+}
+
+fn handle_pet_selection(
+    mut next_state: ResMut<NextState<GameState>>,
+    mut pending: ResMut<PendingSelection>,
+    mut interaction_query: Query<
+        (&Interaction, &PetButton, &mut BackgroundColor),
+        (Changed<Interaction>, With<Button>),
+    >,
+) {
+    for (interaction, pet_btn, mut color) in interaction_query.iter_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                if !pending.pets.contains(&pet_btn.0) {
+                    pending.pets.push(pet_btn.0);
+                    *color = Color::srgb(0.2, 0.6, 0.2).into();
+                }
+
+                if pending.pets.len() >= 2 {
+                    next_state.set(GameState::Playing);
+                }
+            }
+            Interaction::Hovered => {
+                if !pending.pets.contains(&pet_btn.0) {
+                    *color = Color::srgb(0.4, 0.4, 0.4).into();
+                }
+            }
+            Interaction::None => {
+                if !pending.pets.contains(&pet_btn.0) {
+                    *color = Color::srgb(0.2, 0.2, 0.2).into();
+                }
+            }
+        }
+    }
+}
+
+fn start_game(mut commands: Commands, mut pending: ResMut<PendingSelection>) {
+    let class = pending.class.unwrap_or(PlayerClass::Tank);
+    let player_entity = spawn_player(&mut commands, Vec3::ZERO, class);
+
+    if class == PlayerClass::Tamer {
+        for pet_type in pending.pets.iter() {
+            spawn_pet(&mut commands, player_entity, *pet_type);
+        }
+    }
+
+    // Limpar seleção para o próximo restart
+    *pending = PendingSelection::default();
+}
+
+fn spawn_pet(commands: &mut Commands, owner: Entity, pet_type: PetType) {
+    let color = match pet_type {
+        PetType::Healer => Color::srgb(0.2, 1.0, 0.5),
+        PetType::Damager => Color::srgb(1.0, 0.2, 0.2),
+        PetType::Buffer => Color::srgb(0.2, 0.5, 1.0),
+        PetType::Tanker => Color::srgb(0.7, 0.7, 0.7),
+    };
+
+    let mut entity = commands.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                color,
+                custom_size: Some(Vec2::splat(16.0)),
+                ..default()
+            },
+            transform: Transform::from_xyz(0.0, 0.0, 8.0),
+            ..default()
+        },
+        Pet {
+            owner,
+            pet_type,
+            action_timer: Timer::from_seconds(1.0, TimerMode::Repeating),
+        },
+    ));
+
+    if pet_type == PetType::Tanker {
+        entity.insert(Taunt);
+    }
+}
+
+fn update_pets(
+    time: Res<Time>,
+    owner_query: Query<&Transform, With<Player>>,
+    mut pet_query: Query<(&mut Transform, &Pet), Without<Player>>,
+) {
+    for (mut transform, pet) in pet_query.iter_mut() {
+        if let Ok(owner_transform) = owner_query.get(pet.owner) {
+            let target = owner_transform.translation.truncate();
+            let current = transform.translation.truncate();
+
+            // Offset baseado no tipo de pet para não ficarem encavalados
+            let offset = match pet.pet_type {
+                PetType::Healer => Vec2::new(-40.0, 20.0),
+                PetType::Damager => Vec2::new(40.0, 20.0),
+                PetType::Buffer => Vec2::new(-40.0, -20.0),
+                PetType::Tanker => Vec2::new(40.0, -20.0),
+            };
+
+            let dest = target + offset;
+            let dist = current.distance(dest);
+
+            if dist > 5.0 {
+                let dir = (dest - current).normalize();
+                let speed = 250.0;
+                transform.translation += (dir * speed * time.delta_seconds()).extend(0.0);
+            }
+        }
+    }
+}
+
+fn pet_actions(
+    time: Res<Time>,
+    mut pet_query: Query<(&Transform, &mut Pet)>,
+    mut owner_query: Query<(&mut Health, &mut Stats), With<Player>>,
+    enemy_query: Query<(Entity, &Transform), With<Enemy>>,
+    mut damage_events: EventWriter<DamageEvent>,
+) {
+    for (transform, mut pet) in pet_query.iter_mut() {
+        pet.action_timer.tick(time.delta());
+
+        if pet.action_timer.just_finished() {
+            match pet.pet_type {
+                PetType::Healer => {
+                    if let Ok((mut health, _)) = owner_query.get_mut(pet.owner) {
+                        health.current = (health.current + health.max * 0.01).min(health.max);
+                    }
+                }
+                PetType::Damager => {
+                    // Ataca o inimigo mais próximo
+                    let pet_pos = transform.translation.truncate();
+                    let mut nearest: Option<(Entity, f32)> = None;
+
+                    for (enemy_entity, enemy_transform) in enemy_query.iter() {
+                        let dist = pet_pos.distance(enemy_transform.translation.truncate());
+                        if dist < 250.0 {
+                            if nearest.is_none() || dist < nearest.unwrap().1 {
+                                nearest = Some((enemy_entity, dist));
+                            }
+                        }
+                    }
+
+                    if let Some((target, _)) = nearest {
+                        damage_events.send(DamageEvent {
+                            target,
+                            amount: 10.0,
+                            is_crit: false,
+                        });
+                    }
+                }
+                PetType::Buffer => {
+                    if let Ok((_, mut stats)) = owner_query.get_mut(pet.owner) {
+                        // Aplica bônus temporário (como o sistema roda sempre, mantemos o bônus)
+                        // Para ser robusto deveríamos resetar os stats base antes, mas ARPGs simples
+                        // costumam ter buffs que expiram. Aqui, enquanto o pet viver, o regen/armor é maior.
+                        stats.armor = (stats.armor).max(25.0);
+                        stats.damage = (stats.damage).max(35.0);
+                    }
+                }
+                PetType::Tanker => {
+                    // Tanker pet just exists and is handled by Taunt component in enemy_ai
+                }
+            }
+        }
+    }
+}
+
+fn despawn_selection_ui(mut commands: Commands, query: Query<Entity, With<SelectionUi>>) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn_recursive();
     }
 }
