@@ -52,6 +52,12 @@ fn main() {
                 update_xp_orbs,
                 collect_xp,
                 spawn_enemies,
+            )
+                .run_if(in_state(GameState::Playing)),
+        )
+        .add_systems(
+            Update,
+            (
                 update_health_bars,
                 update_cooldown_ui,
                 update_stats_ui,
@@ -584,7 +590,7 @@ fn player_attack(
     let direction = (cursor_pos.0 - player_pos).normalize_or_zero();
 
     let mut rng = rand::thread_rng();
-    let is_crit = rng.gen::<f32>() < stats.crit_chance;
+    let is_crit = rng.r#gen::<f32>() < stats.crit_chance;
     let damage = if is_crit {
         stats.damage * stats.crit_multiplier
     } else {
@@ -1010,7 +1016,7 @@ fn spawn_enemies(
 
     let spawn_chance = 0.025 + (game_stats.time_survived / 200.0).min(0.06);
 
-    if rand::thread_rng().gen::<f32>() > spawn_chance {
+    if rand::thread_rng().r#gen::<f32>() > spawn_chance {
         return;
     }
 
