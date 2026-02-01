@@ -147,6 +147,11 @@ struct Health {
     max: f32,
 }
 
+#[derive(Component, Default)]
+struct Shield {
+    amount: f32,
+}
+
 #[derive(Component, Clone)]
 struct Stats {
     speed: f32,
@@ -466,6 +471,7 @@ fn spawn_player(commands: &mut Commands, position: Vec3, class: PlayerClass) -> 
         current: 100.0,
         max: 100.0,
     };
+    let mut shield = Shield::default();
     let mut attack_cooldown = Timer::from_seconds(0.3, TimerMode::Once);
     let mut skill_cooldowns = SkillCooldowns {
         dash: Timer::from_seconds(2.0, TimerMode::Once),
@@ -476,6 +482,7 @@ fn spawn_player(commands: &mut Commands, position: Vec3, class: PlayerClass) -> 
         PlayerClass::Tank => {
             health.max = 200.0;
             health.current = 200.0;
+            shield.amount = 50.0;
             stats.armor = 50.0;
             stats.speed = 170.0;
             stats.damage = 30.0;
@@ -508,6 +515,7 @@ fn spawn_player(commands: &mut Commands, position: Vec3, class: PlayerClass) -> 
         .spawn((
             Player { class },
             health,
+            shield,
             stats,
             Level::new(),
             Velocity(Vec2::ZERO),
@@ -836,9 +844,20 @@ fn player_skills(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     cursor_pos: Res<CursorWorldPos>,
-    mut query: Query<(Entity, &mut Transform, &Stats, &Player, &mut SkillCooldowns), With<Player>>,
+    mut query: Query<
+        (
+            Entity,
+            &mut Transform,
+            &Stats,
+            &Player,
+            &mut SkillCooldowns,
+            &mut Shield,
+        ),
+        With<Player>,
+    >,
 ) {
-    let Ok((player_entity, mut transform, stats, player, mut cooldowns)) = query.get_single_mut()
+    let Ok((player_entity, mut transform, stats, player, mut cooldowns, mut shield)) =
+        query.get_single_mut()
     else {
         return;
     };
@@ -950,7 +969,9 @@ fn player_skills(
                 ));
             }
             PlayerClass::Tamer => {
-                // Command: No specific logic here yet, but could buff pets
+                // Command: Give player a temporary shield
+                shield.amount += 30.0;
+
                 commands.spawn((
                     SpriteBundle {
                         sprite: Sprite {
@@ -1112,6 +1133,7 @@ fn process_damage(
     mut damage_events: EventReader<DamageEvent>,
     mut targets: Query<(
         &mut Health,
+        Option<&mut Shield>,
         &Transform,
         Option<&Stats>,
         Option<&Invulnerable>,
@@ -1119,7 +1141,8 @@ fn process_damage(
     mut game_stats: ResMut<GameStats>,
 ) {
     for event in damage_events.read() {
-        let Ok((mut health, transform, stats, invuln)) = targets.get_mut(event.target) else {
+        let Ok((mut health, shield, transform, stats, invuln)) = targets.get_mut(event.target)
+        else {
             continue;
         };
 
@@ -1129,10 +1152,23 @@ fn process_damage(
 
         let armor = stats.map(|s| s.armor).unwrap_or(0.0);
         let damage_reduction = armor / (armor + 100.0);
-        let final_damage = event.amount * (1.0 - damage_reduction);
+        let mut final_damage = event.amount * (1.0 - damage_reduction);
+
+        // Aplicar dano ao escudo primeiro
+        if let Some(mut s) = shield {
+            if s.amount > 0.0 {
+                if s.amount >= final_damage {
+                    s.amount -= final_damage;
+                    final_damage = 0.0;
+                } else {
+                    final_damage -= s.amount;
+                    s.amount = 0.0;
+                }
+            }
+        }
 
         health.current -= final_damage;
-        game_stats.damage_dealt += final_damage;
+        game_stats.damage_dealt += event.amount; // Contabiliza dano bruto
 
         // Damage number
         let color = if event.is_crit {
@@ -1508,12 +1544,12 @@ fn update_health_bars(
 }
 
 fn update_cooldown_ui(
-    player: Query<(&SkillCooldowns, &Level, &Health), With<Player>>,
+    player: Query<(&SkillCooldowns, &Level, &Health, &Shield), With<Player>>,
     mut ui: Query<&mut Text, With<CooldownUi>>,
     mut game_stats: ResMut<GameStats>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
-    let Ok((cooldowns, level, health)) = player.get_single() else {
+    let Ok((cooldowns, level, health, shield)) = player.get_single() else {
         return;
     };
     let Ok(mut text) = ui.get_single_mut() else {
@@ -1536,9 +1572,15 @@ fn update_cooldown_ui(
         format!("[Space] Nova: {:.1}s\n", cooldowns.nova.remaining_secs())
     };
 
+    let shield_text = if shield.amount > 0.0 {
+        format!(" | SHIELD: {:.0}", shield.amount)
+    } else {
+        "".to_string()
+    };
+
     text.sections[3].value = format!(
-        "\nLevel: {} | HP: {:.0}/{:.0}\n",
-        level.level, health.current, health.max
+        "\nLevel: {} | HP: {:.0}/{:.0}{}\n",
+        level.level, health.current, health.max, shield_text
     );
     text.sections[4].value = format!("XP: {}/{}", level.xp, level.xp_to_next);
 }
