@@ -71,6 +71,7 @@ pub fn enemy_attack(
 
 pub fn spawn_enemies(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     time: Res<Time>,
     mut game_stats: ResMut<GameStats>,
     player_query: Query<(&Transform, &Level), With<Player>>,
@@ -104,30 +105,33 @@ pub fn spawn_enemies(
     let damage_scale = 1.0 + (player_level.level as f32 - 1.0) * 0.15;
 
     let enemy_type = rng.gen_range(0..3);
-    let (size, color, health, damage, xp, speed) = match enemy_type {
+    let (size, color, health, damage, xp, speed, texture) = match enemy_type {
         0 => (
-            Vec2::new(24.0, 24.0),
-            Color::srgb(0.85, 0.2, 0.2),
+            Vec2::new(50.0, 50.0),
+            Color::WHITE,
             35.0,
             10.0,
             12,
             85.0,
+            Some(asset_server.load("sprites/orc/idle.png")),
         ),
         1 => (
-            Vec2::new(36.0, 36.0),
-            Color::srgb(0.9, 0.55, 0.15),
+            Vec2::new(65.0, 65.0),
+            Color::srgb(1.0, 0.6, 0.6), // Reddish
             70.0,
             15.0,
             30,
             60.0,
+            Some(asset_server.load("sprites/orc/idle.png")),
         ),
         _ => (
-            Vec2::new(18.0, 18.0),
-            Color::srgb(0.6, 0.2, 0.7),
+            Vec2::new(35.0, 35.0),
+            Color::srgb(0.6, 0.4, 0.9), // Purpleish
             22.0,
             18.0,
             18,
             130.0,
+            Some(asset_server.load("sprites/orc/idle.png")),
         ),
     };
 
@@ -150,9 +154,11 @@ pub fn spawn_enemies(
 
     commands.entity(enemy_entity).with_children(|parent| {
         parent.spawn(SpriteBundle {
+            texture: texture.unwrap_or_default(),
             sprite: Sprite {
                 color,
                 custom_size: Some(size),
+                rect: Some(Rect::new(0.0, 0.0, 100.0, 100.0)),
                 ..default()
             },
             ..default()

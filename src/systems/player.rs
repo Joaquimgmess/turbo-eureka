@@ -87,6 +87,7 @@ pub fn player_attack(
     mut commands: Commands,
     mouse: Res<ButtonInput<MouseButton>>,
     time: Res<Time>,
+    asset_server: Res<AssetServer>,
     cursor_pos: Res<CursorWorldPos>,
     mut query: Query<(Entity, &Transform, &Stats, &Player, &mut AttackCooldown), With<Player>>,
 ) {
@@ -135,18 +136,30 @@ pub fn player_attack(
                 _ => Color::srgb(1.0, 0.7, 0.1),
             };
 
+            let texture = if player.class == PlayerClass::Archer {
+                Some(asset_server.load("sprites/projectiles/arrow.png"))
+            } else {
+                None
+            };
+
             commands.spawn((
                 SpriteBundle {
+                    texture: texture.unwrap_or_default(),
                     sprite: Sprite {
                         color: if is_crit {
                             Color::srgb(1.0, 1.0, 0.2)
                         } else {
                             proj_color
                         },
-                        custom_size: Some(Vec2::new(14.0, 14.0)),
+                        custom_size: Some(if player.class == PlayerClass::Archer {
+                            Vec2::new(32.0, 32.0)
+                        } else {
+                            Vec2::new(14.0, 14.0)
+                        }),
                         ..default()
                     },
-                    transform: Transform::from_translation(spawn_pos.extend(5.0)),
+                    transform: Transform::from_translation(spawn_pos.extend(5.0))
+                        .with_rotation(Quat::from_rotation_z(direction.y.atan2(direction.x))),
                     ..default()
                 },
                 Projectile {
@@ -185,6 +198,7 @@ pub fn player_skills(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
+    asset_server: Res<AssetServer>,
     cursor_pos: Res<CursorWorldPos>,
     mut query: Query<
         (
@@ -265,17 +279,23 @@ pub fn player_skills(
                     duration: Timer::from_seconds(0.15, TimerMode::Once),
                 });
                 // Shoot 3 arrows
+                let arrow_texture = asset_server.load("sprites/projectiles/arrow.png");
                 for i in -1..=1 {
                     let angle = (i as f32) * 0.2;
                     let shoot_dir = Quat::from_rotation_z(angle) * (-direction).extend(0.0);
+                    let shoot_dir_2d = shoot_dir.truncate();
                     commands.spawn((
                         SpriteBundle {
+                            texture: arrow_texture.clone(),
                             sprite: Sprite {
                                 color: Color::srgb(1.0, 1.0, 0.5),
-                                custom_size: Some(Vec2::new(10.0, 10.0)),
+                                custom_size: Some(Vec2::new(24.0, 24.0)),
                                 ..default()
                             },
-                            transform: Transform::from_translation(player_pos.extend(5.0)),
+                            transform: Transform::from_translation(player_pos.extend(5.0))
+                                .with_rotation(Quat::from_rotation_z(
+                                    shoot_dir_2d.y.atan2(shoot_dir_2d.x),
+                                )),
                             ..default()
                         },
                         Projectile {
@@ -285,7 +305,7 @@ pub fn player_skills(
                             hit_entities: HashSet::new(),
                             is_crit: false,
                         },
-                        Velocity(shoot_dir.truncate() * 700.0),
+                        Velocity(shoot_dir_2d * 700.0),
                         Lifetime(Timer::from_seconds(1.0, TimerMode::Once)),
                     ));
                 }
@@ -331,7 +351,12 @@ pub fn player_skills(
     }
 }
 
-pub fn spawn_player(commands: &mut Commands, position: Vec3, class: PlayerClass) -> Entity {
+pub fn spawn_player(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    position: Vec3,
+    class: PlayerClass,
+) -> Entity {
     let mut stats = Stats::default();
     let mut health = Health {
         current: 100.0,
@@ -393,32 +418,28 @@ pub fn spawn_player(commands: &mut Commands, position: Vec3, class: PlayerClass)
         ))
         .id();
 
+    let texture = match class {
+        PlayerClass::Tank => asset_server.load("sprites/soldier/idle.png"),
+        _ => asset_server.load("sprites/soldier/idle.png"),
+    };
+
     let body_color = match class {
-        PlayerClass::Tank => Color::srgb(0.2, 0.4, 0.8),
+        PlayerClass::Tank => Color::srgb(1.0, 1.0, 1.0), // White (no tint)
         PlayerClass::Archer => Color::srgb(0.8, 0.7, 0.2),
         PlayerClass::Mage => Color::srgb(0.6, 0.2, 0.8),
         PlayerClass::Tamer => Color::srgb(0.2, 0.8, 0.3),
     };
 
     commands.entity(player_entity).with_children(|parent| {
-        // Corpo
+        // Corpo (agora usando a sprite do soldado)
         parent.spawn(SpriteBundle {
+            texture,
             sprite: Sprite {
                 color: body_color,
-                custom_size: Some(Vec2::new(28.0, 36.0)),
+                custom_size: Some(Vec2::new(64.0, 64.0)),
+                rect: Some(Rect::new(0.0, 0.0, 100.0, 100.0)),
                 ..default()
             },
-            ..default()
-        });
-
-        // Indicador de direção
-        parent.spawn(SpriteBundle {
-            sprite: Sprite {
-                color: Color::srgb(0.5, 1.0, 0.6),
-                custom_size: Some(Vec2::new(8.0, 14.0)),
-                ..default()
-            },
-            transform: Transform::from_xyz(0.0, 22.0, 0.1),
             ..default()
         });
 
@@ -427,10 +448,10 @@ pub fn spawn_player(commands: &mut Commands, position: Vec3, class: PlayerClass)
             SpriteBundle {
                 sprite: Sprite {
                     color: Color::srgb(0.15, 0.0, 0.0),
-                    custom_size: Some(Vec2::new(42.0, 7.0)),
+                    custom_size: Some(Vec2::new(50.0, 8.0)),
                     ..default()
                 },
-                transform: Transform::from_xyz(0.0, 32.0, 0.1),
+                transform: Transform::from_xyz(0.0, 40.0, 0.1),
                 ..default()
             },
             HealthBar,
@@ -441,13 +462,13 @@ pub fn spawn_player(commands: &mut Commands, position: Vec3, class: PlayerClass)
             SpriteBundle {
                 sprite: Sprite {
                     color: Color::srgb(0.1, 0.9, 0.1),
-                    custom_size: Some(Vec2::new(40.0, 5.0)),
+                    custom_size: Some(Vec2::new(48.0, 6.0)),
                     ..default()
                 },
-                transform: Transform::from_xyz(0.0, 32.0, 0.2),
+                transform: Transform::from_xyz(0.0, 40.0, 0.2),
                 ..default()
             },
-            HealthBarFill(40.0),
+            HealthBarFill(48.0),
         ));
     });
 
