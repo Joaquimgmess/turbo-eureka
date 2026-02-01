@@ -15,7 +15,7 @@ mod events;
 mod resources;
 mod systems;
 
-use bevy::{prelude::*, window::PrimaryWindow};
+use bevy::prelude::*;
 use components::*;
 use events::*;
 use resources::*;

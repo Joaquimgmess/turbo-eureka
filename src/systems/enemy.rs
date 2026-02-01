@@ -89,7 +89,7 @@ pub fn spawn_enemies(
 
     let spawn_chance = 0.025 + (game_stats.time_survived / 200.0).min(0.06);
 
-    if rand::thread_rng().gen::<f32>() > spawn_chance {
+    if rand::thread_rng().r#gen::<f32>() > spawn_chance {
         return;
     }
 

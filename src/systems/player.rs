@@ -104,7 +104,7 @@ pub fn player_attack(
     let direction = (cursor_pos.0 - player_pos).normalize_or_zero();
 
     let mut rng = rand::thread_rng();
-    let is_crit = rng.gen::<f32>() < stats.crit_chance;
+    let is_crit = rng.r#gen::<f32>() < stats.crit_chance;
     let damage = if is_crit {
         stats.damage * stats.crit_multiplier
     } else {

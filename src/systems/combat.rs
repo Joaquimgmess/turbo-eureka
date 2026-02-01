@@ -252,7 +252,7 @@ pub fn spawn_melee_attack(
     is_tank: bool,
 ) {
     let mut rng = rand::thread_rng();
-    let is_crit = rng.gen::<f32>() < 0.1; // Simplificado para o helper, mas idealmente passaria crit_chance
+    let is_crit = rng.r#gen::<f32>() < 0.1; // Simplificado para o helper, mas idealmente passaria crit_chance
     let melee_damage = damage * 1.8;
     let spawn_pos = player_pos + direction * 45.0;
 

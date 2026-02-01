@@ -147,7 +147,7 @@ pub fn show_game_over(mut commands: Commands, game_stats: Res<GameStats>) {
 pub fn restart_game(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
-    current_state: Res<State<GameState>>,
+    _current_state: Res<State<GameState>>,
     mut next_state: ResMut<NextState<GameState>>,
     despawn_query: Query<
         Entity,
