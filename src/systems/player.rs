@@ -78,11 +78,26 @@ pub fn update_invulnerability(
     }
 }
 
-pub fn regen_health(time: Res<Time>, mut query: Query<(&mut Health, &Stats), With<Player>>) {
-    for (mut health, stats) in query.iter_mut() {
+pub fn regen_health(
+    time: Res<Time>,
+    mut query: Query<(&mut Health, &mut Shield, &Stats, &PlayerPassives), With<Player>>,
+) {
+    for (mut health, mut shield, stats, passives) in query.iter_mut() {
         if health.current < health.max {
             health.current =
                 (health.current + stats.life_regen * time.delta_seconds()).min(health.max);
+        }
+
+        let mut shield_regen = 0.0;
+        for &node_id in &passives.unlocked_nodes {
+            if node_id == 102 {
+                shield_regen += 8.0;
+            }
+        }
+
+        if shield.amount < (health.max * 0.5) {
+            shield.amount =
+                (shield.amount + shield_regen * time.delta_seconds()).min(health.max * 0.5);
         }
     }
 }

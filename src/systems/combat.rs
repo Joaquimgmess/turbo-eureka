@@ -195,6 +195,7 @@ pub fn process_damage(
             Option<&Stats>,
             Option<&Invulnerable>,
             Option<&mut ElementalStatus>,
+            Option<&PlayerPassives>,
         )>,
         Query<(&Transform, &PlayerPassives)>,
     )>,
@@ -206,6 +207,9 @@ pub fn process_damage(
     for event in damage_events.read() {
         let mut knockback_info = None;
         let mut elemental_chances = Vec::new();
+        let mut life_leech = 0.0;
+        let mut shield_leech = 0.0;
+        let mut damage_mult = 1.0;
 
         if let Some(attacker_entity) = event.attacker {
             if let Ok((attacker_transform, passives)) = set.p1().get(attacker_entity) {
@@ -215,16 +219,19 @@ pub fn process_damage(
 
                 for &node_id in &passives.unlocked_nodes {
                     match node_id {
-                        11 => elemental_chances.push(PassiveEffect::ChanceFire(0.15)),
-                        14 => elemental_chances.push(PassiveEffect::ChanceIce(0.20)),
-                        17 => elemental_chances.push(PassiveEffect::ChanceLightning(0.10)),
+                        11 => elemental_chances.push(PassiveEffect::ChanceFire(0.20)),
+                        14 => elemental_chances.push(PassiveEffect::ChanceIce(0.25)),
+                        17 => elemental_chances.push(PassiveEffect::ChanceLightning(0.15)),
+                        201 => damage_mult *= 1.25,
+                        203 => life_leech += 0.015,
+                        104 => shield_leech += 0.03,
                         _ => {}
                     }
                 }
             }
         }
 
-        if let Ok((mut health, shield, mut transform, stats, invuln, mut status)) =
+        if let Ok((mut health, shield, mut transform, stats, invuln, mut status, target_passives)) =
             set.p0().get_mut(event.target)
         {
             if invuln.is_some() {
@@ -233,6 +240,12 @@ pub fn process_damage(
 
             let mut armor = stats.map(|s| s.armor).unwrap_or(0.0);
 
+            if let Some(passives) = target_passives {
+                if passives.unlocked_nodes.contains(&101) {
+                    armor *= 1.3;
+                }
+            }
+
             if let Some(ref s) = status {
                 if s.fire_stacks > 0 {
                     armor *= 1.0 - (s.fire_stacks as f32 * 0.05).min(0.5);
@@ -240,36 +253,10 @@ pub fn process_damage(
             }
 
             let damage_reduction = armor / (armor + 100.0);
-            let mut final_damage = event.amount * (1.0 - damage_reduction);
+            let mut final_damage = event.amount * damage_mult * (1.0 - damage_reduction);
 
-            for chance_effect in &elemental_chances {
-                match chance_effect {
-                    PassiveEffect::ChanceFire(c) => {
-                        if rng.r#gen::<f32>() < *c {
-                            status_events.send(ApplyStatusEvent {
-                                target: event.target,
-                                effect: *chance_effect,
-                            });
-                        }
-                    }
-                    PassiveEffect::ChanceIce(c) => {
-                        if rng.r#gen::<f32>() < *c {
-                            status_events.send(ApplyStatusEvent {
-                                target: event.target,
-                                effect: *chance_effect,
-                            });
-                        }
-                    }
-                    PassiveEffect::ChanceLightning(c) => {
-                        if rng.r#gen::<f32>() < *c {
-                            status_events.send(ApplyStatusEvent {
-                                target: event.target,
-                                effect: *chance_effect,
-                            });
-                        }
-                    }
-                    _ => {}
-                }
+            if let Some(attacker_entity) = event.attacker {
+                if life_leech > 0.0 || shield_leech > 0.0 {}
             }
 
             if let Some(mut s) = shield {
@@ -285,7 +272,11 @@ pub fn process_damage(
             }
 
             health.current -= final_damage;
-            game_stats.damage_dealt += event.amount;
+            game_stats.damage_dealt += event.amount * damage_mult;
+
+            if let Some(attacker_entity) = event.attacker {
+                if life_leech > 0.0 || shield_leech > 0.0 {}
+            }
 
             if let Some(attacker_pos) = knockback_info {
                 let dir = (transform.translation - attacker_pos)

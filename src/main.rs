@@ -27,6 +27,7 @@ fn main() {
         .insert_resource(CursorWorldPos(Vec2::ZERO))
         .insert_resource(GameStats::default())
         .insert_resource(PendingSelection::default())
+        .insert_resource(MapTier(1))
         .add_event::<DamageEvent>()
         .add_event::<SpawnXpOrbEvent>()
         .add_event::<ApplyStatusEvent>()
@@ -244,10 +245,10 @@ fn setup(
         0,
         PassiveNode {
             id: 0,
-            name: "Start".to_string(),
-            description: "+5 Damage".to_string(),
+            name: "Origin".to_string(),
+            description: "+10 Damage".to_string(),
             effect: PassiveEffect::StatAdd(Stats {
-                damage: 5.0,
+                damage: 10.0,
                 ..zero_stats
             }),
             requirements: vec![],
@@ -256,160 +257,129 @@ fn setup(
     );
 
     nodes.insert(
-        1,
+        200,
         PassiveNode {
-            id: 1,
-            name: "Titan I".to_string(),
-            description: "+5 Armor".to_string(),
+            id: 200,
+            name: "Warrior Soul".to_string(),
+            description: "+15 Damage".to_string(),
             effect: PassiveEffect::StatAdd(Stats {
-                armor: 5.0,
+                damage: 15.0,
                 ..zero_stats
             }),
             requirements: vec![0],
-            position: Vec2::new(-150.0, 0.0),
+            position: Vec2::new(120.0, 0.0),
         },
     );
     nodes.insert(
-        2,
+        201,
         PassiveNode {
-            id: 2,
-            name: "Titan II".to_string(),
-            description: "+10 Armor".to_string(),
-            effect: PassiveEffect::StatAdd(Stats {
-                armor: 10.0,
+            id: 201,
+            name: "Brutality".to_string(),
+            description: "25% More Damage".to_string(),
+            effect: PassiveEffect::StatMult(Stats {
+                damage: 1.25,
                 ..zero_stats
             }),
-            requirements: vec![1],
-            position: Vec2::new(-250.0, 50.0),
+            requirements: vec![200],
+            position: Vec2::new(240.0, 60.0),
         },
     );
     nodes.insert(
-        3,
+        202,
         PassiveNode {
-            id: 3,
-            name: "Titan III".to_string(),
-            description: "+15 Armor".to_string(),
+            id: 202,
+            name: "Precision".to_string(),
+            description: "+10% Crit Chance".to_string(),
             effect: PassiveEffect::StatAdd(Stats {
-                armor: 15.0,
+                crit_chance: 0.1,
                 ..zero_stats
             }),
-            requirements: vec![1],
-            position: Vec2::new(-250.0, -50.0),
+            requirements: vec![200],
+            position: Vec2::new(240.0, -60.0),
         },
     );
-    connections.push((0, 1));
-    connections.push((1, 2));
-    connections.push((1, 3));
+    nodes.insert(
+        203,
+        PassiveNode {
+            id: 203,
+            name: "Soul Feast".to_string(),
+            description: "1.5% Life Leech".to_string(),
+            effect: PassiveEffect::LifeLeech(0.015),
+            requirements: vec![201],
+            position: Vec2::new(360.0, 100.0),
+        },
+    );
+
+    connections.push((0, 200));
+    connections.push((200, 201));
+    connections.push((200, 202));
+    connections.push((201, 203));
 
     nodes.insert(
-        4,
+        100,
         PassiveNode {
-            id: 4,
-            name: "Falcon I".to_string(),
-            description: "+10% Attack Speed".to_string(),
+            id: 100,
+            name: "Guardian Core".to_string(),
+            description: "+20 Armor".to_string(),
             effect: PassiveEffect::StatAdd(Stats {
-                attack_speed: 0.1,
+                armor: 20.0,
                 ..zero_stats
             }),
             requirements: vec![0],
-            position: Vec2::new(0.0, 150.0),
+            position: Vec2::new(-120.0, 0.0),
         },
     );
     nodes.insert(
-        5,
+        101,
         PassiveNode {
-            id: 5,
-            name: "Falcon II".to_string(),
-            description: "+5% Crit Chance".to_string(),
-            effect: PassiveEffect::StatAdd(Stats {
-                crit_chance: 0.05,
+            id: 101,
+            name: "Hardened Aegis".to_string(),
+            description: "30% More Armor".to_string(),
+            effect: PassiveEffect::StatMult(Stats {
+                armor: 1.3,
                 ..zero_stats
             }),
-            requirements: vec![4],
-            position: Vec2::new(-50.0, 250.0),
+            requirements: vec![100],
+            position: Vec2::new(-240.0, 60.0),
         },
     );
     nodes.insert(
-        6,
+        102,
         PassiveNode {
-            id: 6,
-            name: "Falcon III".to_string(),
-            description: "+50% Crit Multiplier".to_string(),
-            effect: PassiveEffect::StatAdd(Stats {
-                crit_multiplier: 0.5,
-                ..zero_stats
-            }),
-            requirements: vec![4],
-            position: Vec2::new(50.0, 250.0),
+            id: 102,
+            name: "Crystal Skin".to_string(),
+            description: "8 Shield Regen/sec".to_string(),
+            effect: PassiveEffect::ShieldRegen(8.0),
+            requirements: vec![100],
+            position: Vec2::new(-240.0, -60.0),
         },
     );
     nodes.insert(
-        10,
+        104,
         PassiveNode {
-            id: 10,
-            name: "Ricochet".to_string(),
-            description: "Projectiles bounce once".to_string(),
-            effect: PassiveEffect::Ricochet,
-            requirements: vec![4],
-            position: Vec2::new(0.0, 300.0),
+            id: 104,
+            name: "Ethereal Barrier".to_string(),
+            description: "3% Shield Leech".to_string(),
+            effect: PassiveEffect::ShieldLeech(0.03),
+            requirements: vec![102],
+            position: Vec2::new(-360.0, -100.0),
         },
     );
-    connections.push((0, 4));
-    connections.push((4, 5));
-    connections.push((4, 6));
-    connections.push((4, 10));
 
-    nodes.insert(
-        7,
-        PassiveNode {
-            id: 7,
-            name: "Arcanist I".to_string(),
-            description: "+10 Damage".to_string(),
-            effect: PassiveEffect::StatAdd(Stats {
-                damage: 10.0,
-                ..zero_stats
-            }),
-            requirements: vec![0],
-            position: Vec2::new(150.0, 0.0),
-        },
-    );
-    nodes.insert(
-        8,
-        PassiveNode {
-            id: 8,
-            name: "Arcanist II".to_string(),
-            description: "Adds knockback to attacks".to_string(),
-            effect: PassiveEffect::Knockback,
-            requirements: vec![7],
-            position: Vec2::new(250.0, 50.0),
-        },
-    );
-    nodes.insert(
-        9,
-        PassiveNode {
-            id: 9,
-            name: "Arcanist III".to_string(),
-            description: "Enemies explode on death".to_string(),
-            effect: PassiveEffect::Explosion,
-            requirements: vec![7],
-            position: Vec2::new(250.0, -50.0),
-        },
-    );
-    connections.push((0, 7));
-    connections.push((7, 8));
-    connections.push((7, 9));
+    connections.push((0, 100));
+    connections.push((100, 101));
+    connections.push((100, 102));
+    connections.push((102, 104));
 
-    // Elemental Branches
-    // Fire Branch (Lower-Left)
     nodes.insert(
         11,
         PassiveNode {
             id: 11,
-            name: "Pyromancy I".to_string(),
-            description: "15% chance to Burn on hit".to_string(),
-            effect: PassiveEffect::ChanceFire(0.15),
-            requirements: vec![1],
-            position: Vec2::new(-200.0, -200.0),
+            name: "Pyromancy".to_string(),
+            description: "20% chance to Burn".to_string(),
+            effect: PassiveEffect::ChanceFire(0.20),
+            requirements: vec![201],
+            position: Vec2::new(340.0, 0.0),
         },
     );
     nodes.insert(
@@ -420,22 +390,21 @@ fn setup(
             description: "Enemies explode at 10 stacks".to_string(),
             effect: PassiveEffect::MasteryFire,
             requirements: vec![11],
-            position: Vec2::new(-300.0, -250.0),
+            position: Vec2::new(460.0, 40.0),
         },
     );
-    connections.push((1, 11));
+    connections.push((201, 11));
     connections.push((11, 12));
 
-    // Ice Branch (Lower-Right)
     nodes.insert(
         14,
         PassiveNode {
             id: 14,
-            name: "Cryomancy I".to_string(),
-            description: "20% chance to Chill on hit".to_string(),
-            effect: PassiveEffect::ChanceIce(0.20),
-            requirements: vec![7],
-            position: Vec2::new(200.0, -200.0),
+            name: "Cryomancy".to_string(),
+            description: "25% chance to Chill".to_string(),
+            effect: PassiveEffect::ChanceIce(0.25),
+            requirements: vec![102],
+            position: Vec2::new(-340.0, 0.0),
         },
     );
     nodes.insert(
@@ -443,39 +412,38 @@ fn setup(
         PassiveNode {
             id: 15,
             name: "Shatter".to_string(),
-            description: "Max stacks freeze & explode".to_string(),
+            description: "Max stacks freeze & burst".to_string(),
             effect: PassiveEffect::MasteryIce,
             requirements: vec![14],
-            position: Vec2::new(300.0, -250.0),
+            position: Vec2::new(-460.0, -40.0),
         },
     );
-    connections.push((7, 14));
+    connections.push((102, 14));
     connections.push((14, 15));
 
-    // Lightning Branch (Upper-Right)
     nodes.insert(
         17,
         PassiveNode {
             id: 17,
-            name: "Electromancy I".to_string(),
-            description: "10% chance to Shock on hit".to_string(),
-            effect: PassiveEffect::ChanceLightning(0.10),
-            requirements: vec![4],
-            position: Vec2::new(200.0, 200.0),
+            name: "Electromancy".to_string(),
+            description: "15% chance to Shock".to_string(),
+            effect: PassiveEffect::ChanceLightning(0.15),
+            requirements: vec![202],
+            position: Vec2::new(340.0, -120.0),
         },
     );
     nodes.insert(
         18,
         PassiveNode {
             id: 18,
-            name: "Chain Discharge".to_string(),
-            description: "Max stacks chain to nearby".to_string(),
+            name: "Chain Lightning".to_string(),
+            description: "Discharge at 10 stacks".to_string(),
             effect: PassiveEffect::MasteryLightning,
             requirements: vec![17],
-            position: Vec2::new(300.0, 250.0),
+            position: Vec2::new(460.0, -160.0),
         },
     );
-    connections.push((4, 17));
+    connections.push((202, 17));
     connections.push((17, 18));
 
     commands.insert_resource(PassiveTree { nodes, connections });

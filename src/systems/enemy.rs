@@ -214,6 +214,7 @@ pub fn check_enemy_death(
     enemies: Query<(Entity, &Health, &Transform, &Enemy, Option<&Boss>)>,
     player_query: Query<(Entity, &PlayerPassives), With<Player>>,
     mut game_stats: ResMut<GameStats>,
+    mut map_tier: ResMut<MapTier>,
     mut xp_events: EventWriter<SpawnXpOrbEvent>,
 ) {
     let Ok((player_entity, passives)) = player_query.get_single() else {
@@ -230,6 +231,7 @@ pub fn check_enemy_death(
             });
 
             if boss.is_some() {
+                map_tier.0 += 1;
                 commands.spawn((
                     Loot,
                     SpriteBundle {
@@ -245,7 +247,6 @@ pub fn check_enemy_death(
             }
 
             if passives.unlocked_nodes.contains(&9) {
-                // Instant burst instead of zone
                 commands.spawn((
                     SpriteBundle {
                         sprite: Sprite {

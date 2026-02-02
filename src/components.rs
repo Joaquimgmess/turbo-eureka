@@ -79,6 +79,10 @@ pub enum PassiveEffect {
     MasteryFire,
     MasteryIce,
     MasteryLightning,
+    StatMult(Stats),
+    ShieldRegen(f32),
+    LifeLeech(f32),
+    ShieldLeech(f32),
 }
 
 #[derive(Component, Default)]

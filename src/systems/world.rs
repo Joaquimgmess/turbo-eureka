@@ -98,7 +98,8 @@ pub fn collect_xp(
 pub fn spawn_boss(
     mut commands: Commands,
     time: Res<Time>,
-    mut game_stats: ResMut<GameStats>,
+    game_stats: Res<GameStats>,
+    map_tier: Res<MapTier>,
     sprites: Res<CharacterSprites>,
     player_query: Query<&Transform, With<Player>>,
     boss_query: Query<&Boss>,
@@ -109,18 +110,20 @@ pub fn spawn_boss(
         };
         let spawn_pos = player_transform.translation.truncate() + Vec2::new(0.0, 400.0);
 
+        let tier_scale = 1.0 + (map_tier.0 as f32 - 1.0) * 0.5;
+
         commands.spawn((
             Boss,
             Enemy {
-                damage: 45.0,
-                xp_value: 500,
+                damage: 45.0 * tier_scale,
+                xp_value: 500 * map_tier.0,
                 attack_cooldown: Timer::from_seconds(0.8, TimerMode::Once),
-                speed: 120.0,
+                speed: 120.0 + (map_tier.0 as f32 * 5.0),
             },
             ElementalStatus::default(),
             Health {
-                current: 2000.0,
-                max: 2000.0,
+                current: 2000.0 * tier_scale,
+                max: 2000.0 * tier_scale,
             },
             SpriteBundle {
                 texture: sprites.orc_idle.clone(),
@@ -156,7 +159,6 @@ pub fn update_hazards(
     _damage_events: EventWriter<DamageEvent>,
     _status_events: EventWriter<ApplyStatusEvent>,
 ) {
-    // Hazard spawning removed as per user request
 }
 
 pub fn handle_loot(
