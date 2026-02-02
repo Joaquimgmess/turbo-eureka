@@ -114,9 +114,6 @@ pub fn setup_passive_ui(
                                         ..default()
                                     },
                                     background_color: Color::srgb(0.3, 0.3, 0.3).into(),
-                                    transform: Transform::from_rotation(Quat::from_rotation_z(
-                                        angle,
-                                    )),
                                     ..default()
                                 },
                                 PassiveConnection(id1, id2),
