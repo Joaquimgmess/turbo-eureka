@@ -154,10 +154,10 @@ pub fn spawn_boss(
         && (current_time / spawn_interval).floor() > (last_time / spawn_interval).floor()
         && boss_query.iter().count() == 0
     {
-        let Ok(player_transform) = player_query.get_single() else {
+        if player_query.get_single().is_err() {
             return;
         };
-        let spawn_pos = player_transform.translation.truncate() + Vec2::new(0.0, 400.0);
+        let spawn_pos = Vec2::ZERO;
 
         let tier_scale = 1.0 + (map_tier.0 as f32 - 1.0) * 0.5;
 
