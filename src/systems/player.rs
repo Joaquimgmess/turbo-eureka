@@ -1,4 +1,6 @@
 use crate::components::*;
+use crate::constants::*;
+use crate::helpers::*;
 use crate::resources::*;
 use crate::systems::combat::spawn_melee_attack;
 use bevy::prelude::*;
@@ -36,24 +38,20 @@ pub fn player_movement(
         let movement = direction * stats.speed * time.delta_seconds();
         let mut new_pos = transform.translation + movement.extend(0.0);
 
-        let player_radius = 25.0;
         let mut collision = false;
         for (obs_transform, obs_sprite) in obstacles.iter() {
             let obs_pos = obs_transform.translation.truncate();
             let obs_size = obs_sprite.custom_size.unwrap_or(Vec2::splat(50.0)) / 2.0;
 
-            let dist_x = (new_pos.x - obs_pos.x).abs();
-            let dist_y = (new_pos.y - obs_pos.y).abs();
-
-            if dist_x < (obs_size.x + player_radius) && dist_y < (obs_size.y + player_radius) {
+            if point_rect_collision(new_pos.truncate(), obs_pos, obs_size, PLAYER_RADIUS) {
                 collision = true;
                 break;
             }
         }
 
         if !collision {
-            new_pos.x = new_pos.x.clamp(-1200.0, 1200.0);
-            new_pos.y = new_pos.y.clamp(-1200.0, 1200.0);
+            let clamped = clamp_to_bounds(new_pos.truncate(), MAP_BOUNDS);
+            new_pos = clamped.extend(new_pos.z);
             transform.translation = new_pos;
         }
 
@@ -86,17 +84,15 @@ pub fn update_dash(
             for (obs_transform, obs_sprite) in obstacles.iter() {
                 let obs_pos = obs_transform.translation.truncate();
                 let obs_size = obs_sprite.custom_size.unwrap_or(Vec2::splat(50.0)) / 2.0;
-                let dist_x = (new_pos.x - obs_pos.x).abs();
-                let dist_y = (new_pos.y - obs_pos.y).abs();
-                if dist_x < obs_size.x + 20.0 && dist_y < obs_size.y + 20.0 {
+                if point_rect_collision(new_pos.truncate(), obs_pos, obs_size, PLAYER_RADIUS) {
                     collision = true;
                     break;
                 }
             }
 
             if !collision {
-                new_pos.x = new_pos.x.clamp(-1200.0, 1200.0);
-                new_pos.y = new_pos.y.clamp(-1200.0, 1200.0);
+                let clamped = clamp_to_bounds(new_pos.truncate(), MAP_BOUNDS);
+                new_pos = clamped.extend(new_pos.z);
                 transform.translation = new_pos;
             }
         }
@@ -240,8 +236,8 @@ pub fn player_attack(
                     hit_entities: HashSet::new(),
                     is_crit,
                 },
-                Velocity(direction * 550.0),
-                Lifetime(Timer::from_seconds(2.0, TimerMode::Once)),
+                Velocity(direction * PROJECTILE_SPEED),
+                Lifetime(Timer::from_seconds(PROJECTILE_LIFETIME, TimerMode::Once)),
             ));
         }
     }
@@ -288,15 +284,15 @@ pub fn player_skills(
     cooldowns.nova.tick(time.delta());
     let player_pos = transform.translation.truncate();
     if keyboard.just_pressed(KeyCode::KeyQ) && cooldowns.dash.finished() {
-        cooldowns.dash = Timer::from_seconds(2.0, TimerMode::Once);
+        cooldowns.dash = Timer::from_seconds(DASH_COOLDOWN, TimerMode::Once);
         let direction = (cursor_pos.0 - player_pos).normalize_or_zero();
         commands.entity(player_entity).insert((
             Dash {
                 direction,
-                speed: 900.0,
-                duration: Timer::from_seconds(0.12, TimerMode::Once),
+                speed: DASH_SPEED,
+                duration: Timer::from_seconds(DASH_DURATION, TimerMode::Once),
             },
-            Invulnerable(Timer::from_seconds(0.12, TimerMode::Once)),
+            Invulnerable(Timer::from_seconds(DASH_DURATION, TimerMode::Once)),
         ));
     }
     if keyboard.just_pressed(KeyCode::Space) && cooldowns.nova.finished() {
@@ -373,10 +369,9 @@ pub fn player_skills(
                 let direction = (cursor_pos.0 - player_pos).normalize_or_zero();
                 let mut target = player_pos + direction * 200.0;
 
-                target.x = target.x.clamp(-1200.0, 1200.0);
-                target.y = target.y.clamp(-1200.0, 1200.0);
+                target = clamp_to_bounds(target, MAP_BOUNDS);
 
-                transform.translation = target.extend(10.0);
+                transform.translation = target.extend(PLAYER_Z);
                 commands.spawn((
                     SpriteBundle {
                         sprite: Sprite {
@@ -423,8 +418,8 @@ pub fn spawn_player(
     let mut shield = Shield::default();
     let mut attack_cooldown = Timer::from_seconds(0.3, TimerMode::Once);
     let mut skill_cooldowns = SkillCooldowns {
-        dash: Timer::from_seconds(2.0, TimerMode::Once),
-        nova: Timer::from_seconds(5.0, TimerMode::Once),
+        dash: Timer::from_seconds(DASH_COOLDOWN, TimerMode::Once),
+        nova: Timer::from_seconds(NOVA_COOLDOWN_DEFAULT, TimerMode::Once),
     };
     match class {
         PlayerClass::Tank => {
@@ -480,10 +475,10 @@ pub fn spawn_player(
                 texture: sprites.soldier_idle.clone(),
                 sprite: Sprite {
                     color: body_color,
-                    custom_size: Some(Vec2::new(180.0, 180.0)),
+                    custom_size: Some(Vec2::new(PLAYER_SPRITE_SIZE, PLAYER_SPRITE_SIZE)),
                     ..default()
                 },
-                transform: Transform::from_translation(position.truncate().extend(10.0)),
+                transform: Transform::from_translation(position.truncate().extend(PLAYER_Z)),
                 ..default()
             },
             TextureAtlas {
@@ -502,7 +497,7 @@ pub fn spawn_player(
             SpriteBundle {
                 sprite: Sprite {
                     color: Color::srgb(0.15, 0.0, 0.0),
-                    custom_size: Some(Vec2::new(50.0, 8.0)),
+                    custom_size: Some(Vec2::new(HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT)),
                     ..default()
                 },
                 transform: Transform::from_xyz(0.0, 95.0, 0.1),
@@ -514,13 +509,13 @@ pub fn spawn_player(
             SpriteBundle {
                 sprite: Sprite {
                     color: Color::srgb(0.1, 0.9, 0.1),
-                    custom_size: Some(Vec2::new(48.0, 6.0)),
+                    custom_size: Some(Vec2::new(HEALTH_BAR_WIDTH - 2.0, HEALTH_BAR_HEIGHT - 2.0)),
                     ..default()
                 },
                 transform: Transform::from_xyz(0.0, 95.0, 0.2),
                 ..default()
             },
-            HealthBarFill(48.0),
+            HealthBarFill(HEALTH_BAR_WIDTH - 2.0),
         ));
     });
     player_entity
