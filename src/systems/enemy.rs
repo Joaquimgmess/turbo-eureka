@@ -263,18 +263,6 @@ pub fn check_enemy_death(
     }
 }
 
-pub fn check_player_death(
-    player: Query<&Health, With<Player>>,
-    mut next_state: ResMut<NextState<GameState>>,
-) {
-    let Ok(health) = player.get_single() else {
-        return;
-    };
-    if health.current <= 0.0 {
-        next_state.set(GameState::GameOver);
-    }
-}
-
 pub fn handle_status_applications(
     mut events: EventReader<ApplyStatusEvent>,
     mut query: Query<&mut ElementalStatus>,
