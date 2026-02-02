@@ -1,4 +1,5 @@
 use crate::components::*;
+use crate::constants::*;
 use crate::events::*;
 use crate::resources::*;
 use bevy::prelude::*;
@@ -35,7 +36,7 @@ pub fn update_projectiles(
             }
             let enemy_pos = enemy_transform.translation.truncate();
             let distance = proj_pos.distance(enemy_pos);
-            if distance < 65.0 {
+            if distance < PROJECTILE_HIT_RADIUS {
                 target_enemy = Some(enemy_entity);
                 break;
             }
@@ -102,7 +103,7 @@ pub fn update_melee_attacks(
             }
             let enemy_pos = enemy_transform.translation.truncate();
             let distance = melee_pos.distance(enemy_pos);
-            if distance < 110.0 {
+            if distance < MELEE_HIT_RADIUS {
                 melee.hit_entities.insert(enemy_entity);
                 damage_events.send(DamageEvent {
                     target: enemy_entity,
@@ -288,7 +289,7 @@ pub fn process_damage(
                 let dir = (transform.translation - attacker_pos)
                     .truncate()
                     .normalize_or_zero();
-                transform.translation += (dir * 35.0).extend(0.0);
+                transform.translation += (dir * KNOCKBACK_FORCE).extend(0.0);
             }
         } else if let Ok((_e, mut health, mut shield, transform, passives)) =
             player_query.get_mut(event.target)
@@ -362,7 +363,7 @@ pub fn process_damage(
                 },
                 DamageNumber {
                     velocity: Vec2::new(rand::thread_rng().r#gen_range(-25.0..25.0), 60.0),
-                    lifetime: Timer::from_seconds(0.7, TimerMode::Once),
+                    lifetime: Timer::from_seconds(DAMAGE_NUMBER_LIFETIME, TimerMode::Once),
                 },
             ));
         }
