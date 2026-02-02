@@ -1,4 +1,5 @@
 use crate::components::*;
+use crate::constants::*;
 use crate::events::*;
 use crate::resources::*;
 use bevy::{prelude::*, window::PrimaryWindow};
@@ -37,7 +38,7 @@ pub fn update_xp_orbs(mut commands: Commands, mut xp_events: EventReader<SpawnXp
                 ..default()
             },
             XpOrb { value: event.value },
-            Lifetime(Timer::from_seconds(12.0, TimerMode::Once)),
+            Lifetime(Timer::from_seconds(XP_ORB_LIFETIME, TimerMode::Once)),
         ));
     }
 }
@@ -69,13 +70,13 @@ pub fn collect_xp(
         let orb_pos = orb_transform.translation.truncate();
         let distance = orb_pos.distance(player_pos);
 
-        if distance < 120.0 {
+        if distance < XP_ATTRACT_RADIUS {
             let direction = (player_pos - orb_pos).normalize_or_zero();
-            let speed = 250.0 * (1.0 - distance / 120.0) + 80.0;
+            let speed = 250.0 * (1.0 - distance / XP_ATTRACT_RADIUS) + 80.0;
             orb_transform.translation += (direction * speed * time.delta_seconds()).extend(0.0);
         }
 
-        if distance < 22.0 {
+        if distance < XP_PICKUP_RADIUS {
             if level.add_xp(xp_orb.value) {
                 stats.damage *= 1.12;
                 stats.speed *= 1.02;
@@ -104,7 +105,7 @@ pub fn spawn_boss(
     player_query: Query<&Transform, With<Player>>,
     boss_query: Query<&Boss>,
 ) {
-    let spawn_interval = 120.0;
+    let spawn_interval = BOSS_SPAWN_INTERVAL;
     let current_time = game_stats.time_survived;
     let last_time = current_time - time.delta_seconds();
 
@@ -211,13 +212,13 @@ pub fn generate_map(
     let bounds = map_data.bounds;
     let mut rng = rand::thread_rng();
 
-    for x in (-bounds as i32..=bounds as i32).step_by(200) {
-        for y in (-bounds as i32..=bounds as i32).step_by(200) {
+    for x in (-bounds as i32..=bounds as i32).step_by(TILE_SIZE as usize) {
+        for y in (-bounds as i32..=bounds as i32).step_by(TILE_SIZE as usize) {
             let pos = Vec2::new(x as f32, y as f32);
             commands.spawn((SpriteBundle {
                 sprite: Sprite {
                     color: Color::srgb(0.15, 0.15, 0.18),
-                    custom_size: Some(Vec2::splat(195.0)),
+                    custom_size: Some(Vec2::splat(TILE_SIZE - 5.0)),
                     ..default()
                 },
                 transform: Transform::from_translation(pos.extend(-1.0)),
@@ -294,7 +295,7 @@ pub fn update_minimap(
     commands.entity(minimap_entity).despawn_descendants();
 
     let player_pos = player_transform.translation.truncate();
-    let map_scale = 150.0 / 2400.0;
+    let map_scale = 150.0 / (MAP_BOUNDS * 2.0);
 
     commands.entity(minimap_entity).with_children(|parent| {
         parent.spawn(NodeBundle {
