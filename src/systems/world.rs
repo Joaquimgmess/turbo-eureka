@@ -150,7 +150,8 @@ pub fn spawn_boss(
     let current_time = game_stats.time_survived;
     let last_time = current_time - time.delta_seconds();
 
-    if (current_time / spawn_interval).floor() > (last_time / spawn_interval).floor()
+    if current_time > 0.1
+        && (current_time / spawn_interval).floor() > (last_time / spawn_interval).floor()
         && boss_query.iter().count() == 0
     {
         let Ok(player_transform) = player_query.get_single() else {
@@ -336,7 +337,7 @@ pub fn update_minimap(
     player_query: Query<&Transform, With<Player>>,
     enemies_query: Query<(Entity, &Transform, Option<&Boss>), With<Enemy>>,
     mut player_icon: Query<&mut Style, With<MinimapPlayerIcon>>,
-    enemy_icons: Query<(Entity, &MinimapEnemyIcon)>,
+    mut enemy_icons: Query<(Entity, &MinimapEnemyIcon, &mut Style), Without<MinimapPlayerIcon>>,
 ) {
     let Ok(minimap_entity) = minimap_query.get_single() else {
         return;
@@ -353,43 +354,61 @@ pub fn update_minimap(
         style.bottom = Val::Px(75.0 + player_pos.y * map_scale - 2.0);
     }
 
-    let mut existing: std::collections::HashSet<Entity> =
-        enemy_icons.iter().map(|(_, icon)| icon.0).collect();
+    let mut existing_icons = std::collections::HashMap::new();
+    for (icon_entity, icon, style) in enemy_icons.iter() {
+        existing_icons.insert(icon.0, icon_entity);
+    }
+
+    let mut enemies_to_spawn = Vec::new();
+    let mut current_enemy_entities = std::collections::HashSet::new();
 
     for (enemy_entity, transform, boss) in enemies_query.iter() {
         let pos = transform.translation.truncate();
+        current_enemy_entities.insert(enemy_entity);
 
-        if existing.remove(&enemy_entity) {
+        if let Some(&icon_entity) = existing_icons.get(&enemy_entity) {
+            if let Ok((_, _, mut style)) = enemy_icons.get_mut(icon_entity) {
+                let size = match style.width {
+                    Val::Px(s) => s,
+                    _ => 3.0,
+                };
+                style.left = Val::Px(75.0 + pos.x * map_scale - size / 2.0);
+                style.bottom = Val::Px(75.0 + pos.y * map_scale - size / 2.0);
+            }
         } else {
-            let (color, size) = if boss.is_some() {
-                (Color::srgb(1.0, 1.0, 0.0), 6.0)
-            } else {
-                (Color::srgb(1.0, 0.0, 0.0), 3.0)
-            };
-
-            commands.entity(minimap_entity).with_children(|parent| {
-                parent.spawn((
-                    MinimapEnemyIcon(enemy_entity),
-                    NodeBundle {
-                        style: Style {
-                            width: Val::Px(size),
-                            height: Val::Px(size),
-                            position_type: PositionType::Absolute,
-                            left: Val::Px(75.0 + pos.x * map_scale - size / 2.0),
-                            bottom: Val::Px(75.0 + pos.y * map_scale - size / 2.0),
-                            ..default()
-                        },
-                        background_color: color.into(),
-                        ..default()
-                    },
-                ));
-            });
+            enemies_to_spawn.push((enemy_entity, pos, boss.is_some()));
         }
     }
 
-    for (icon_entity, icon) in enemy_icons.iter() {
-        if existing.contains(&icon.0) {
+    for (icon_entity, icon, _) in enemy_icons.iter() {
+        if !current_enemy_entities.contains(&icon.0) {
             commands.entity(icon_entity).despawn();
         }
+    }
+
+    for (enemy_entity, pos, is_boss) in enemies_to_spawn {
+        let (color, size) = if is_boss {
+            (Color::srgb(1.0, 1.0, 0.0), 6.0)
+        } else {
+            (Color::srgb(1.0, 0.0, 0.0), 3.0)
+        };
+
+        commands.entity(minimap_entity).with_children(|parent| {
+            parent.spawn((
+                MinimapEnemyIcon(enemy_entity),
+                NodeBundle {
+                    style: Style {
+                        width: Val::Px(size),
+                        height: Val::Px(size),
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(75.0 + pos.x * map_scale - size / 2.0),
+                        bottom: Val::Px(75.0 + pos.y * map_scale - size / 2.0),
+                        ..default()
+                    },
+                    background_color: color.into(),
+                    ..default()
+                },
+            ));
+        });
     }
 }
