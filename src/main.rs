@@ -118,7 +118,6 @@ fn setup(
 ) {
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(100), 6, 1, None, None);
     let layout_handle = texture_atlases.add(layout);
-
     commands.insert_resource(CharacterSprites {
         orc_idle: asset_server.load("sprites/orc/idle.png"),
         orc_walk: asset_server.load("sprites/orc/walk.png"),
@@ -128,9 +127,7 @@ fn setup(
         soldier_attack: asset_server.load("sprites/soldier/attack1.png"),
         layout: layout_handle,
     });
-
     commands.spawn(Camera2dBundle::default());
-
     commands.spawn((
         TextBundle::from_sections([
             TextSection::new(
@@ -182,7 +179,6 @@ fn setup(
         }),
         CooldownUi,
     ));
-
     commands.spawn((
         TextBundle::from_sections([
             TextSection::new(
@@ -210,7 +206,6 @@ fn setup(
         }),
         StatsUi,
     ));
-
     commands.spawn(
         TextBundle::from_section(
             "WASD: Move | LMB: Shoot | RMB: Melee | Q: Dash | Space: Nova | Tab: Stats | P: Passives",
@@ -227,10 +222,8 @@ fn setup(
             ..default()
         }),
     );
-
     let mut nodes = HashMap::new();
     let mut connections = Vec::new();
-
     let zero_stats = Stats {
         speed: 0.0,
         damage: 0.0,
@@ -240,7 +233,6 @@ fn setup(
         life_regen: 0.0,
         armor: 0.0,
     };
-
     nodes.insert(
         0,
         PassiveNode {
@@ -255,7 +247,6 @@ fn setup(
             position: Vec2::ZERO,
         },
     );
-
     nodes.insert(
         200,
         PassiveNode {
@@ -309,12 +300,76 @@ fn setup(
             position: Vec2::new(360.0, 100.0),
         },
     );
-
+    nodes.insert(
+        204,
+        PassiveNode {
+            id: 204,
+            name: "Slaughter".to_string(),
+            description: "10% More Damage".to_string(),
+            effect: PassiveEffect::StatMult(Stats {
+                damage: 1.1,
+                ..zero_stats
+            }),
+            requirements: vec![200],
+            position: Vec2::new(120.0, 100.0),
+        },
+    );
+    nodes.insert(
+        205,
+        PassiveNode {
+            id: 205,
+            name: "Celerity".to_string(),
+            description: "+15% Attack Speed".to_string(),
+            effect: PassiveEffect::StatAdd(Stats {
+                attack_speed: 0.15,
+                ..zero_stats
+            }),
+            requirements: vec![204],
+            position: Vec2::new(120.0, 200.0),
+        },
+    );
+    nodes.insert(
+        8,
+        PassiveNode {
+            id: 8,
+            name: "Impact".to_string(),
+            description: "Add knockback to attacks".to_string(),
+            effect: PassiveEffect::Knockback,
+            requirements: vec![200],
+            position: Vec2::new(0.0, 120.0),
+        },
+    );
+    nodes.insert(
+        10,
+        PassiveNode {
+            id: 10,
+            name: "Ricochet".to_string(),
+            description: "Projectiles bounce once".to_string(),
+            effect: PassiveEffect::Ricochet,
+            requirements: vec![202],
+            position: Vec2::new(360.0, -100.0),
+        },
+    );
+    nodes.insert(
+        9,
+        PassiveNode {
+            id: 9,
+            name: "Combustion Corpse".to_string(),
+            description: "Enemies explode on death".to_string(),
+            effect: PassiveEffect::Explosion,
+            requirements: vec![201],
+            position: Vec2::new(360.0, 20.0),
+        },
+    );
     connections.push((0, 200));
     connections.push((200, 201));
     connections.push((200, 202));
     connections.push((201, 203));
-
+    connections.push((200, 204));
+    connections.push((204, 205));
+    connections.push((200, 8));
+    connections.push((202, 10));
+    connections.push((201, 9));
     nodes.insert(
         100,
         PassiveNode {
@@ -365,12 +420,60 @@ fn setup(
             position: Vec2::new(-360.0, -100.0),
         },
     );
-
+    nodes.insert(
+        105,
+        PassiveNode {
+            id: 105,
+            name: "Sanctuary".to_string(),
+            description: "+20 Shield".to_string(),
+            effect: PassiveEffect::StatAdd(Stats {
+                speed: 0.0,
+                damage: 0.0,
+                attack_speed: 0.0,
+                crit_chance: 0.0,
+                crit_multiplier: 0.0,
+                life_regen: 0.0,
+                armor: 0.0,
+            }),
+            requirements: vec![100],
+            position: Vec2::new(-120.0, -100.0),
+        },
+    );
+    nodes.insert(
+        106,
+        PassiveNode {
+            id: 106,
+            name: "Bastion".to_string(),
+            description: "15% More Shield".to_string(),
+            effect: PassiveEffect::StatMult(Stats {
+                armor: 1.15,
+                ..zero_stats
+            }),
+            requirements: vec![105],
+            position: Vec2::new(-200.0, -180.0),
+        },
+    );
+    nodes.insert(
+        107,
+        PassiveNode {
+            id: 107,
+            name: "Mending".to_string(),
+            description: "+5 Life Regen".to_string(),
+            effect: PassiveEffect::StatAdd(Stats {
+                life_regen: 5.0,
+                ..zero_stats
+            }),
+            requirements: vec![105],
+            position: Vec2::new(-40.0, -180.0),
+        },
+    );
     connections.push((0, 100));
     connections.push((100, 101));
     connections.push((100, 102));
     connections.push((102, 104));
-
+    connections.push((100, 105));
+    connections.push((105, 106));
+    connections.push((105, 107));
     nodes.insert(
         11,
         PassiveNode {
@@ -379,7 +482,7 @@ fn setup(
             description: "20% chance to Burn".to_string(),
             effect: PassiveEffect::ChanceFire(0.20),
             requirements: vec![201],
-            position: Vec2::new(340.0, 0.0),
+            position: Vec2::new(340.0, 140.0),
         },
     );
     nodes.insert(
@@ -390,12 +493,11 @@ fn setup(
             description: "Enemies explode at 10 stacks".to_string(),
             effect: PassiveEffect::MasteryFire,
             requirements: vec![11],
-            position: Vec2::new(460.0, 40.0),
+            position: Vec2::new(460.0, 180.0),
         },
     );
     connections.push((201, 11));
     connections.push((11, 12));
-
     nodes.insert(
         14,
         PassiveNode {
@@ -404,7 +506,7 @@ fn setup(
             description: "25% chance to Chill".to_string(),
             effect: PassiveEffect::ChanceIce(0.25),
             requirements: vec![102],
-            position: Vec2::new(-340.0, 0.0),
+            position: Vec2::new(-340.0, 20.0),
         },
     );
     nodes.insert(
@@ -415,12 +517,11 @@ fn setup(
             description: "Max stacks freeze & burst".to_string(),
             effect: PassiveEffect::MasteryIce,
             requirements: vec![14],
-            position: Vec2::new(-460.0, -40.0),
+            position: Vec2::new(-460.0, 60.0),
         },
     );
     connections.push((102, 14));
     connections.push((14, 15));
-
     nodes.insert(
         17,
         PassiveNode {
@@ -429,7 +530,7 @@ fn setup(
             description: "15% chance to Shock".to_string(),
             effect: PassiveEffect::ChanceLightning(0.15),
             requirements: vec![202],
-            position: Vec2::new(340.0, -120.0),
+            position: Vec2::new(340.0, -180.0),
         },
     );
     nodes.insert(
@@ -440,11 +541,10 @@ fn setup(
             description: "Discharge at 10 stacks".to_string(),
             effect: PassiveEffect::MasteryLightning,
             requirements: vec![17],
-            position: Vec2::new(460.0, -160.0),
+            position: Vec2::new(460.0, -220.0),
         },
     );
     connections.push((202, 17));
     connections.push((17, 18));
-
     commands.insert_resource(PassiveTree { nodes, connections });
 }

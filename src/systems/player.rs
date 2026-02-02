@@ -14,11 +14,9 @@ pub fn player_movement(
     let Ok((mut transform, stats, dash, mut state)) = query.get_single_mut() else {
         return;
     };
-
     if dash.is_some() {
         return;
     }
-
     let mut direction = Vec2::ZERO;
     if keyboard.pressed(KeyCode::KeyW) {
         direction.y += 1.0;
@@ -32,7 +30,6 @@ pub fn player_movement(
     if keyboard.pressed(KeyCode::KeyD) {
         direction.x += 1.0;
     }
-
     if direction.length_squared() > 0.0 {
         direction = direction.normalize();
         transform.translation += (direction * stats.speed * time.delta_seconds()).extend(0.0);
@@ -42,7 +39,6 @@ pub fn player_movement(
     } else if *state != CharacterState::Attacking {
         *state = CharacterState::Idle;
     }
-
     let to_cursor = cursor_pos.0 - transform.translation.truncate();
     let angle = to_cursor.y.atan2(to_cursor.x) - std::f32::consts::FRAC_PI_2;
     transform.rotation = Quat::from_rotation_z(angle);
@@ -55,7 +51,6 @@ pub fn update_dash(
 ) {
     for (entity, mut transform, mut dash) in query.iter_mut() {
         dash.duration.tick(time.delta());
-
         if dash.duration.finished() {
             commands.entity(entity).remove::<Dash>();
         } else {
@@ -87,14 +82,12 @@ pub fn regen_health(
             health.current =
                 (health.current + stats.life_regen * time.delta_seconds()).min(health.max);
         }
-
         let mut shield_regen = 0.0;
         for &node_id in &passives.unlocked_nodes {
             if node_id == 102 {
                 shield_regen += 8.0;
             }
         }
-
         if shield.amount < (health.max * 0.5) {
             shield.amount =
                 (shield.amount + shield_regen * time.delta_seconds()).min(health.max * 0.5);
@@ -126,20 +119,15 @@ pub fn player_attack(
     else {
         return;
     };
-
     cooldown.0.tick(time.delta());
-
     if cooldown.0.finished() && *state == CharacterState::Attacking {
         *state = CharacterState::Idle;
     }
-
     if !cooldown.0.finished() {
         return;
     }
-
     let player_pos = transform.translation.truncate();
     let direction = (cursor_pos.0 - player_pos).normalize_or_zero();
-
     let mut rng = rand::thread_rng();
     let is_crit = rng.r#gen::<f32>() < stats.crit_chance;
     let damage = if is_crit {
@@ -147,7 +135,6 @@ pub fn player_attack(
     } else {
         stats.damage
     };
-
     if mouse.pressed(MouseButton::Left) {
         *state = CharacterState::Attacking;
         if player.class == PlayerClass::Tank {
@@ -163,20 +150,17 @@ pub fn player_attack(
             cooldown.0 = Timer::from_seconds(0.4 / stats.attack_speed, TimerMode::Once);
         } else {
             cooldown.0 = Timer::from_seconds(0.25 / stats.attack_speed, TimerMode::Once);
-
             let spawn_pos = player_pos + direction * 30.0;
             let proj_color = match player.class {
                 PlayerClass::Mage => Color::srgb(0.6, 0.3, 1.0),
                 PlayerClass::Archer => Color::srgb(0.9, 0.9, 0.4),
                 _ => Color::srgb(1.0, 0.7, 0.1),
             };
-
             let texture = if player.class == PlayerClass::Archer {
                 Some(asset_server.load("sprites/projectiles/arrow.png"))
             } else {
                 None
             };
-
             commands.spawn((
                 SpriteBundle {
                     texture: texture.unwrap_or_default(),
@@ -218,7 +202,6 @@ pub fn player_attack(
             ));
         }
     }
-
     if mouse.pressed(MouseButton::Right) {
         *state = CharacterState::Attacking;
         spawn_melee_attack(
@@ -258,17 +241,12 @@ pub fn player_skills(
     else {
         return;
     };
-
     cooldowns.dash.tick(time.delta());
     cooldowns.nova.tick(time.delta());
-
     let player_pos = transform.translation.truncate();
-
     if keyboard.just_pressed(KeyCode::KeyQ) && cooldowns.dash.finished() {
         cooldowns.dash = Timer::from_seconds(2.0, TimerMode::Once);
-
         let direction = (cursor_pos.0 - player_pos).normalize_or_zero();
-
         commands.entity(player_entity).insert((
             Dash {
                 direction,
@@ -278,7 +256,6 @@ pub fn player_skills(
             Invulnerable(Timer::from_seconds(0.12, TimerMode::Once)),
         ));
     }
-
     if keyboard.just_pressed(KeyCode::Space) && cooldowns.nova.finished() {
         cooldowns.nova = Timer::from_seconds(
             match player.class {
@@ -288,13 +265,11 @@ pub fn player_skills(
             },
             TimerMode::Once,
         );
-
         match player.class {
             PlayerClass::Tank => {
                 commands
                     .entity(player_entity)
                     .insert(Invulnerable(Timer::from_seconds(2.0, TimerMode::Once)));
-
                 commands.spawn((
                     SpriteBundle {
                         sprite: Sprite {
@@ -315,7 +290,6 @@ pub fn player_skills(
                     speed: 1200.0,
                     duration: Timer::from_seconds(0.15, TimerMode::Once),
                 });
-
                 let arrow_texture = asset_server.load("sprites/projectiles/arrow.png");
                 for i in -1..=1 {
                     let angle = (i as f32) * 0.2;
@@ -356,7 +330,6 @@ pub fn player_skills(
                 let direction = (cursor_pos.0 - player_pos).normalize_or_zero();
                 let target = player_pos + direction * 200.0;
                 transform.translation = target.extend(10.0);
-
                 commands.spawn((
                     SpriteBundle {
                         sprite: Sprite {
@@ -372,7 +345,6 @@ pub fn player_skills(
             }
             PlayerClass::Tamer => {
                 shield.amount += 30.0;
-
                 commands.spawn((
                     SpriteBundle {
                         sprite: Sprite {
@@ -407,7 +379,6 @@ pub fn spawn_player(
         dash: Timer::from_seconds(2.0, TimerMode::Once),
         nova: Timer::from_seconds(5.0, TimerMode::Once),
     };
-
     match class {
         PlayerClass::Tank => {
             health.max = 200.0;
@@ -440,14 +411,12 @@ pub fn spawn_player(
             stats.speed = 210.0;
         }
     }
-
     let body_color = match class {
         PlayerClass::Tank => Color::srgb(1.0, 1.0, 1.0),
         PlayerClass::Archer => Color::srgb(0.8, 0.7, 0.2),
         PlayerClass::Mage => Color::srgb(0.6, 0.2, 0.8),
         PlayerClass::Tamer => Color::srgb(0.2, 0.8, 0.3),
     };
-
     let player_entity = commands
         .spawn((
             Player { class },
@@ -481,7 +450,6 @@ pub fn spawn_player(
             },
         ))
         .id();
-
     commands.entity(player_entity).with_children(|parent| {
         parent.spawn((
             SpriteBundle {
@@ -495,7 +463,6 @@ pub fn spawn_player(
             },
             HealthBar,
         ));
-
         parent.spawn((
             SpriteBundle {
                 sprite: Sprite {
@@ -509,6 +476,5 @@ pub fn spawn_player(
             HealthBarFill(48.0),
         ));
     });
-
     player_entity
 }

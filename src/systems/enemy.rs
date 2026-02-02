@@ -15,13 +15,10 @@ pub fn enemy_ai(
         return;
     };
     let player_pos = player_transform.translation.truncate();
-
     for (mut transform, enemy, mut state, mut sprite) in enemies.iter_mut() {
         let enemy_pos = transform.translation.truncate();
-
         let mut target_pos = player_pos;
         let mut min_dist = enemy_pos.distance(player_pos);
-
         for taunt_transform in taunt_query.iter() {
             let dist = enemy_pos.distance(taunt_transform.translation.truncate());
             if dist < 300.0 && dist < min_dist {
@@ -29,18 +26,14 @@ pub fn enemy_ai(
                 target_pos = taunt_transform.translation.truncate();
             }
         }
-
         let to_target = target_pos - enemy_pos;
         let distance = to_target.length();
-
         if distance > 80.0 {
             let direction = to_target.normalize();
             transform.translation += (direction * enemy.speed * time.delta_seconds()).extend(0.0);
-
             if *state != CharacterState::Attacking {
                 *state = CharacterState::Walking;
             }
-
             if direction.x < 0.0 {
                 sprite.flip_x = true;
             } else if direction.x > 0.0 {
@@ -62,21 +55,16 @@ pub fn enemy_attack(
         return;
     };
     let player_pos = player_transform.translation.truncate();
-
     for (enemy_entity, transform, mut enemy, mut state) in enemies.iter_mut() {
         enemy.attack_cooldown.tick(time.delta());
-
         if enemy.attack_cooldown.finished() && *state == CharacterState::Attacking {
             *state = CharacterState::Idle;
         }
-
         let enemy_pos = transform.translation.truncate();
         let distance = enemy_pos.distance(player_pos);
-
         if distance < 85.0 && enemy.attack_cooldown.finished() {
             enemy.attack_cooldown = Timer::from_seconds(1.0, TimerMode::Once);
             *state = CharacterState::Attacking;
-
             damage_events.send(DamageEvent {
                 target: player_entity,
                 attacker: Some(enemy_entity),
@@ -98,30 +86,22 @@ pub fn spawn_enemies(
     let Ok((player_transform, player_level)) = player_query.get_single() else {
         return;
     };
-
     game_stats.time_survived += time.delta_seconds();
-
     let max_enemies = (8 + player_level.level * 2).min(30) as usize;
     if enemies.iter().count() >= max_enemies {
         return;
     }
-
     let spawn_chance = 0.025 + (game_stats.time_survived / 200.0).min(0.06);
-
     if rand::thread_rng().r#gen::<f32>() > spawn_chance {
         return;
     }
-
     let player_pos = player_transform.translation.truncate();
-
     let mut rng = rand::thread_rng();
     let angle = rng.gen_range(0.0..std::f32::consts::TAU);
     let distance = rng.gen_range(350.0..550.0);
     let spawn_pos = player_pos + Vec2::from_angle(angle) * distance;
-
     let health_scale = 1.0 + (player_level.level as f32 - 1.0) * 0.25;
     let damage_scale = 1.0 + (player_level.level as f32 - 1.0) * 0.15;
-
     let enemy_type = rng.gen_range(0..3);
     let (size, color, health, damage, xp, speed) = match enemy_type {
         0 => (Vec2::new(170.0, 170.0), Color::WHITE, 35.0, 10.0, 12, 85.0),
@@ -142,7 +122,6 @@ pub fn spawn_enemies(
             130.0,
         ),
     };
-
     let enemy_entity = commands
         .spawn((
             Enemy {
@@ -179,7 +158,6 @@ pub fn spawn_enemies(
             },
         ))
         .id();
-
     commands.entity(enemy_entity).with_children(|parent| {
         parent.spawn((
             SpriteBundle {
@@ -193,7 +171,6 @@ pub fn spawn_enemies(
             },
             HealthBar,
         ));
-
         parent.spawn((
             SpriteBundle {
                 sprite: Sprite {
@@ -220,16 +197,13 @@ pub fn check_enemy_death(
     let Ok((player_entity, passives)) = player_query.get_single() else {
         return;
     };
-
     for (entity, health, transform, enemy, boss) in enemies.iter() {
         if health.current <= 0.0 {
             game_stats.enemies_killed += 1;
-
             xp_events.send(SpawnXpOrbEvent {
                 position: transform.translation,
                 value: enemy.xp_value,
             });
-
             if boss.is_some() {
                 map_tier.0 += 1;
                 commands.spawn((
@@ -245,7 +219,6 @@ pub fn check_enemy_death(
                     },
                 ));
             }
-
             if passives.unlocked_nodes.contains(&9) {
                 commands.spawn((
                     SpriteBundle {
@@ -266,7 +239,6 @@ pub fn check_enemy_death(
                     },
                 ));
             }
-
             commands.entity(entity).despawn_recursive();
         }
     }
@@ -279,7 +251,6 @@ pub fn check_player_death(
     let Ok(health) = player.get_single() else {
         return;
     };
-
     if health.current <= 0.0 {
         next_state.set(GameState::GameOver);
     }
@@ -312,7 +283,6 @@ pub fn update_elemental_statuses(
     player_query: Query<Entity, With<Player>>,
 ) {
     let player_entity = player_query.get_single().ok();
-
     for (entity, mut status, mut sprite, mut enemy) in query.iter_mut() {
         if status.fire_stacks > status.ice_stacks && status.fire_stacks > status.lightning_stacks {
             sprite.color = Color::srgb(1.0, 0.5, 0.5);
@@ -325,7 +295,6 @@ pub fn update_elemental_statuses(
         {
             sprite.color = Color::srgb(1.0, 1.0, 0.5);
         }
-
         if status.fire_stacks >= 10 {
             damage_events.send(DamageEvent {
                 target: entity,
@@ -345,7 +314,6 @@ pub fn handle_mastery_effects(
     let Ok((player_entity, passives)) = player_query.get_single() else {
         return;
     };
-
     for (_entity, mut status, transform) in enemies.iter_mut() {
         if status.fire_stacks >= 10 && passives.unlocked_nodes.contains(&12) && !status.is_ignited {
             status.is_ignited = true;
@@ -368,7 +336,6 @@ pub fn handle_mastery_effects(
                 },
             ));
         }
-
         if status.ice_stacks >= 10 && passives.unlocked_nodes.contains(&15) && !status.is_frozen {
             status.is_frozen = true;
             commands.spawn((
