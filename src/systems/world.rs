@@ -240,6 +240,7 @@ pub fn generate_map(
     mut map_data: ResMut<MapData>,
     walls: Query<Entity, With<Wall>>,
     obstacles: Query<Entity, With<Obstacle>>,
+    player_query: Query<&Transform, With<Player>>,
 ) {
     if map_data.seed == map_tier.0 as u64 {
         return;
@@ -255,6 +256,13 @@ pub fn generate_map(
 
     let bounds = map_data.bounds;
     let mut rng = rand::thread_rng();
+
+    // Get player position to avoid spawning obstacles on top of them
+    let player_pos = player_query
+        .get_single()
+        .map(|t| t.translation.truncate())
+        .unwrap_or(Vec2::ZERO);
+    const PLAYER_SAFE_RADIUS: f32 = 150.0;
 
     for x in (-bounds as i32..=bounds as i32).step_by(TILE_SIZE as usize) {
         for y in (-bounds as i32..=bounds as i32).step_by(TILE_SIZE as usize) {
@@ -274,6 +282,13 @@ pub fn generate_map(
     for _ in 0..20 {
         let x = rng.gen_range(-bounds..bounds);
         let y = rng.gen_range(-bounds..bounds);
+        let pos = Vec2::new(x, y);
+
+        // Skip if too close to player to prevent trapping them
+        if pos.distance(player_pos) < PLAYER_SAFE_RADIUS {
+            continue;
+        }
+
         let size = rng.gen_range(40.0..100.0);
 
         commands.spawn((

@@ -149,7 +149,12 @@ pub enum BuffType {
     Invulnerable,
 }
 
-fn setup_hud(mut commands: Commands) {
+fn setup_hud(mut commands: Commands, existing_hud: Query<Entity, With<HudRoot>>) {
+    // Prevent duplicate HUD when re-entering Playing state (e.g., from PassiveTree)
+    if existing_hud.get_single().is_ok() {
+        return;
+    }
+
     // === MAIN HUD ROOT ===
     commands
         .spawn((
