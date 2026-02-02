@@ -136,7 +136,6 @@ pub fn player_attack(
     if mouse.pressed(MouseButton::Left) {
         *state = CharacterState::Attacking;
         if player.class == PlayerClass::Tank {
-
             spawn_melee_attack(
                 &mut commands,
                 player_entity,
@@ -277,7 +276,6 @@ pub fn player_skills(
 
         match player.class {
             PlayerClass::Tank => {
-
                 commands
                     .entity(player_entity)
                     .insert(Invulnerable(Timer::from_seconds(2.0, TimerMode::Once)));
@@ -296,7 +294,6 @@ pub fn player_skills(
                 ));
             }
             PlayerClass::Archer => {
-
                 let direction = (player_pos - cursor_pos.0).normalize_or_zero();
                 commands.entity(player_entity).insert(Dash {
                     direction,
@@ -341,7 +338,6 @@ pub fn player_skills(
                 }
             }
             PlayerClass::Mage => {
-
                 let direction = (cursor_pos.0 - player_pos).normalize_or_zero();
                 let target = player_pos + direction * 200.0;
                 transform.translation = target.extend(10.0);
@@ -360,7 +356,6 @@ pub fn player_skills(
                 ));
             }
             PlayerClass::Tamer => {
-
                 shield.amount += 30.0;
 
                 commands.spawn((
@@ -473,7 +468,6 @@ pub fn spawn_player(
         .id();
 
     commands.entity(player_entity).with_children(|parent| {
-
         parent.spawn((
             SpriteBundle {
                 sprite: Sprite {

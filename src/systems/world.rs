@@ -2,6 +2,7 @@ use crate::components::*;
 use crate::events::*;
 use crate::resources::*;
 use bevy::{prelude::*, window::PrimaryWindow};
+use rand::Rng;
 
 pub fn update_cursor_world_pos(
     mut cursor_pos: ResMut<CursorWorldPos>,
@@ -90,6 +91,152 @@ pub fn collect_xp(
             }
 
             commands.entity(orb_entity).despawn();
+        }
+    }
+}
+
+pub fn spawn_boss(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut game_stats: ResMut<GameStats>,
+    sprites: Res<CharacterSprites>,
+    player_query: Query<&Transform, With<Player>>,
+    boss_query: Query<&Boss>,
+) {
+    // Only spawn boss every 120 seconds if none exists
+    if game_stats.time_survived % 120.0 < time.delta_seconds() && boss_query.iter().count() == 0 {
+        let Ok(player_transform) = player_query.get_single() else {
+            return;
+        };
+        let spawn_pos = player_transform.translation.truncate() + Vec2::new(0.0, 400.0);
+
+        commands.spawn((
+            Boss,
+            Enemy {
+                damage: 45.0,
+                xp_value: 500,
+                attack_cooldown: Timer::from_seconds(0.8, TimerMode::Once),
+                speed: 120.0,
+            },
+            ElementalStatus::default(),
+            Health {
+                current: 2000.0,
+                max: 2000.0,
+            },
+            SpriteBundle {
+                texture: sprites.orc_idle.clone(),
+                sprite: Sprite {
+                    color: Color::srgb(0.3, 0.1, 0.4),
+                    custom_size: Some(Vec2::splat(350.0)),
+                    ..default()
+                },
+                transform: Transform::from_translation(spawn_pos.extend(6.0)),
+                ..default()
+            },
+            TextureAtlas {
+                layout: sprites.layout.clone(),
+                index: 0,
+            },
+            AnimationConfig {
+                timer: Timer::from_seconds(0.1, TimerMode::Repeating),
+                frame_count: 6,
+                state: CharacterState::Idle,
+            },
+        ));
+    }
+}
+
+pub fn update_hazards(
+    mut commands: Commands,
+    time: Res<Time>,
+    player_query: Query<(Entity, &Transform), (With<Player>, Without<Hazard>)>,
+    mut hazards: Query<
+        (Entity, &mut Transform, &Hazard, &mut Sprite),
+        (With<Hazard>, Without<Player>),
+    >,
+    mut damage_events: EventWriter<DamageEvent>,
+    mut status_events: EventWriter<ApplyStatusEvent>,
+) {
+    let Ok((player_entity, player_transform)) = player_query.get_single() else {
+        return;
+    };
+    let player_pos = player_transform.translation.truncate();
+
+    // Spawn random hazards occasionally
+    let mut rng = rand::thread_rng();
+    if rng.gen_bool(0.005) {
+        let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+        let spawn_pos = player_pos + Vec2::from_angle(angle) * 300.0;
+
+        let hazard_type = rng.gen_range(0..2);
+        let (color, effect) = if hazard_type == 0 {
+            (
+                Color::srgba(1.0, 0.3, 0.0, 0.4),
+                Some(PassiveEffect::ChanceFire(1.0)),
+            )
+        } else {
+            (
+                Color::srgba(0.0, 0.5, 1.0, 0.4),
+                Some(PassiveEffect::ChanceIce(1.0)),
+            )
+        };
+
+        commands.spawn((
+            Hazard {
+                damage: 5.0,
+                effect,
+            },
+            SpriteBundle {
+                sprite: Sprite {
+                    color,
+                    custom_size: Some(Vec2::splat(120.0)),
+                    ..default()
+                },
+                transform: Transform::from_translation(spawn_pos.extend(1.0)),
+                ..default()
+            },
+            Lifetime(Timer::from_seconds(5.0, TimerMode::Once)),
+        ));
+    }
+
+    for (entity, transform, hazard, mut sprite) in hazards.iter_mut() {
+        let dist = transform.translation.truncate().distance(player_pos);
+        if dist < 60.0 {
+            damage_events.send(DamageEvent {
+                target: player_entity,
+                attacker: None,
+                amount: hazard.damage * time.delta_seconds() * 60.0,
+                is_crit: false,
+            });
+            if let Some(effect) = hazard.effect {
+                status_events.send(ApplyStatusEvent {
+                    target: player_entity,
+                    effect,
+                });
+            }
+        }
+    }
+}
+
+pub fn handle_loot(
+    mut commands: Commands,
+    player_query: Query<&Transform, With<Player>>,
+    loot_query: Query<(Entity, &Transform), With<Loot>>,
+    mut stats_query: Query<&mut Stats, With<Player>>,
+) {
+    let Ok(player_transform) = player_query.get_single() else {
+        return;
+    };
+    let player_pos = player_transform.translation.truncate();
+
+    for (entity, transform) in loot_query.iter() {
+        if transform.translation.truncate().distance(player_pos) < 50.0 {
+            if let Ok(mut stats) = stats_query.get_single_mut() {
+                // Relic bonus
+                stats.damage += 2.0;
+                stats.crit_chance += 0.01;
+                commands.entity(entity).despawn();
+            }
         }
     }
 }

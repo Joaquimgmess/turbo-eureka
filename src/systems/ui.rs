@@ -378,7 +378,6 @@ pub fn start_game(
     mut pending: ResMut<PendingSelection>,
     existing_player: Query<Entity, With<Player>>,
 ) {
-
     if existing_player.get_single().is_ok() {
         return;
     }

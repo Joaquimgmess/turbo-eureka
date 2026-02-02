@@ -1,5 +1,3 @@
-
-
 mod components;
 mod events;
 mod resources;
@@ -31,8 +29,8 @@ fn main() {
         .insert_resource(PendingSelection::default())
         .add_event::<DamageEvent>()
         .add_event::<SpawnXpOrbEvent>()
+        .add_event::<ApplyStatusEvent>()
         .add_systems(Startup, setup)
-
         .add_systems(
             OnEnter(GameState::CharacterSelection),
             setup_class_selection,
@@ -81,6 +79,12 @@ fn main() {
                 spawn_enemies,
                 update_pets,
                 pet_actions,
+                update_elemental_statuses,
+                handle_status_applications,
+                handle_mastery_effects,
+                spawn_boss,
+                update_hazards,
+                handle_loot,
             )
                 .run_if(in_state(GameState::Playing)),
         )
@@ -111,7 +115,6 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(100), 6, 1, None, None);
     let layout_handle = texture_atlases.add(layout);
 
@@ -395,6 +398,85 @@ fn setup(
     connections.push((0, 7));
     connections.push((7, 8));
     connections.push((7, 9));
+
+    // Elemental Branches
+    // Fire Branch (Lower-Left)
+    nodes.insert(
+        11,
+        PassiveNode {
+            id: 11,
+            name: "Pyromancy I".to_string(),
+            description: "15% chance to Burn on hit".to_string(),
+            effect: PassiveEffect::ChanceFire(0.15),
+            requirements: vec![1],
+            position: Vec2::new(-200.0, -200.0),
+        },
+    );
+    nodes.insert(
+        12,
+        PassiveNode {
+            id: 12,
+            name: "Combustion".to_string(),
+            description: "Enemies explode at 10 stacks".to_string(),
+            effect: PassiveEffect::MasteryFire,
+            requirements: vec![11],
+            position: Vec2::new(-300.0, -250.0),
+        },
+    );
+    connections.push((1, 11));
+    connections.push((11, 12));
+
+    // Ice Branch (Lower-Right)
+    nodes.insert(
+        14,
+        PassiveNode {
+            id: 14,
+            name: "Cryomancy I".to_string(),
+            description: "20% chance to Chill on hit".to_string(),
+            effect: PassiveEffect::ChanceIce(0.20),
+            requirements: vec![7],
+            position: Vec2::new(200.0, -200.0),
+        },
+    );
+    nodes.insert(
+        15,
+        PassiveNode {
+            id: 15,
+            name: "Shatter".to_string(),
+            description: "Max stacks freeze & explode".to_string(),
+            effect: PassiveEffect::MasteryIce,
+            requirements: vec![14],
+            position: Vec2::new(300.0, -250.0),
+        },
+    );
+    connections.push((7, 14));
+    connections.push((14, 15));
+
+    // Lightning Branch (Upper-Right)
+    nodes.insert(
+        17,
+        PassiveNode {
+            id: 17,
+            name: "Electromancy I".to_string(),
+            description: "10% chance to Shock on hit".to_string(),
+            effect: PassiveEffect::ChanceLightning(0.10),
+            requirements: vec![4],
+            position: Vec2::new(200.0, 200.0),
+        },
+    );
+    nodes.insert(
+        18,
+        PassiveNode {
+            id: 18,
+            name: "Chain Discharge".to_string(),
+            description: "Max stacks chain to nearby".to_string(),
+            effect: PassiveEffect::MasteryLightning,
+            requirements: vec![17],
+            position: Vec2::new(300.0, 250.0),
+        },
+    );
+    connections.push((4, 17));
+    connections.push((17, 18));
 
     commands.insert_resource(PassiveTree { nodes, connections });
 }

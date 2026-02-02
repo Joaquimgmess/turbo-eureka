@@ -194,32 +194,83 @@ pub fn process_damage(
             &mut Transform,
             Option<&Stats>,
             Option<&Invulnerable>,
+            Option<&mut ElementalStatus>,
         )>,
         Query<(&Transform, &PlayerPassives)>,
     )>,
     mut game_stats: ResMut<GameStats>,
+    mut status_events: EventWriter<ApplyStatusEvent>,
 ) {
+    let mut rng = rand::thread_rng();
+
     for event in damage_events.read() {
         let mut knockback_info = None;
+        let mut elemental_chances = Vec::new();
 
         if let Some(attacker_entity) = event.attacker {
             if let Ok((attacker_transform, passives)) = set.p1().get(attacker_entity) {
                 if passives.unlocked_nodes.contains(&8) {
                     knockback_info = Some(attacker_transform.translation);
                 }
+
+                for &node_id in &passives.unlocked_nodes {
+                    match node_id {
+                        11 => elemental_chances.push(PassiveEffect::ChanceFire(0.15)),
+                        14 => elemental_chances.push(PassiveEffect::ChanceIce(0.20)),
+                        17 => elemental_chances.push(PassiveEffect::ChanceLightning(0.10)),
+                        _ => {}
+                    }
+                }
             }
         }
 
-        if let Ok((mut health, shield, mut transform, stats, invuln)) =
+        if let Ok((mut health, shield, mut transform, stats, invuln, mut status)) =
             set.p0().get_mut(event.target)
         {
             if invuln.is_some() {
                 continue;
             }
 
-            let armor = stats.map(|s| s.armor).unwrap_or(0.0);
+            let mut armor = stats.map(|s| s.armor).unwrap_or(0.0);
+
+            if let Some(ref s) = status {
+                if s.fire_stacks > 0 {
+                    armor *= 1.0 - (s.fire_stacks as f32 * 0.05).min(0.5);
+                }
+            }
+
             let damage_reduction = armor / (armor + 100.0);
             let mut final_damage = event.amount * (1.0 - damage_reduction);
+
+            for chance_effect in &elemental_chances {
+                match chance_effect {
+                    PassiveEffect::ChanceFire(c) => {
+                        if rng.r#gen::<f32>() < *c {
+                            status_events.send(ApplyStatusEvent {
+                                target: event.target,
+                                effect: *chance_effect,
+                            });
+                        }
+                    }
+                    PassiveEffect::ChanceIce(c) => {
+                        if rng.r#gen::<f32>() < *c {
+                            status_events.send(ApplyStatusEvent {
+                                target: event.target,
+                                effect: *chance_effect,
+                            });
+                        }
+                    }
+                    PassiveEffect::ChanceLightning(c) => {
+                        if rng.r#gen::<f32>() < *c {
+                            status_events.send(ApplyStatusEvent {
+                                target: event.target,
+                                effect: *chance_effect,
+                            });
+                        }
+                    }
+                    _ => {}
+                }
+            }
 
             if let Some(mut s) = shield {
                 if s.amount > 0.0 {
@@ -263,12 +314,12 @@ pub fn process_damage(
                     ),
                     transform: Transform::from_translation(
                         transform.translation
-                            + Vec3::new(rand::thread_rng().gen_range(-15.0..15.0), 20.0, 100.0),
+                            + Vec3::new(rand::thread_rng().r#gen_range(-15.0..15.0), 20.0, 100.0),
                     ),
                     ..default()
                 },
                 DamageNumber {
-                    velocity: Vec2::new(rand::thread_rng().gen_range(-25.0..25.0), 60.0),
+                    velocity: Vec2::new(rand::thread_rng().r#gen_range(-25.0..25.0), 60.0),
                     lifetime: Timer::from_seconds(0.7, TimerMode::Once),
                 },
             ));

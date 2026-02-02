@@ -73,6 +73,34 @@ pub enum PassiveEffect {
     Ricochet,
     Explosion,
     Knockback,
+    ChanceFire(f32),
+    ChanceIce(f32),
+    ChanceLightning(f32),
+    MasteryFire,
+    MasteryIce,
+    MasteryLightning,
+}
+
+#[derive(Component, Default)]
+pub struct ElementalStatus {
+    pub fire_stacks: u32,
+    pub ice_stacks: u32,
+    pub lightning_stacks: u32,
+    pub is_ignited: bool,
+    pub is_frozen: bool,
+    pub is_discharged: bool,
+}
+
+#[derive(Component)]
+pub struct Loot;
+
+#[derive(Component)]
+pub struct Boss;
+
+#[derive(Component)]
+pub struct Hazard {
+    pub damage: f32,
+    pub effect: Option<PassiveEffect>,
 }
 
 #[derive(Debug, Clone)]

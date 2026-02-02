@@ -151,6 +151,7 @@ pub fn spawn_enemies(
                 attack_cooldown: Timer::from_seconds(1.0, TimerMode::Once),
                 speed,
             },
+            ElementalStatus::default(),
             Health {
                 current: health * health_scale,
                 max: health * health_scale,
@@ -210,7 +211,7 @@ pub fn spawn_enemies(
 
 pub fn check_enemy_death(
     mut commands: Commands,
-    enemies: Query<(Entity, &Health, &Transform, &Enemy)>,
+    enemies: Query<(Entity, &Health, &Transform, &Enemy, Option<&Boss>)>,
     player_query: Query<(Entity, &PlayerPassives), With<Player>>,
     mut game_stats: ResMut<GameStats>,
     mut xp_events: EventWriter<SpawnXpOrbEvent>,
@@ -219,7 +220,7 @@ pub fn check_enemy_death(
         return;
     };
 
-    for (entity, health, transform, enemy) in enemies.iter() {
+    for (entity, health, transform, enemy, boss) in enemies.iter() {
         if health.current <= 0.0 {
             game_stats.enemies_killed += 1;
 
@@ -227,6 +228,22 @@ pub fn check_enemy_death(
                 position: transform.translation,
                 value: enemy.xp_value,
             });
+
+            if boss.is_some() {
+                // Drop a relic
+                commands.spawn((
+                    Loot,
+                    SpriteBundle {
+                        sprite: Sprite {
+                            color: Color::srgb(1.0, 0.8, 0.0),
+                            custom_size: Some(Vec2::splat(25.0)),
+                            ..default()
+                        },
+                        transform: Transform::from_translation(transform.translation),
+                        ..default()
+                    },
+                ));
+            }
 
             if passives.unlocked_nodes.contains(&9) {
                 commands.spawn((
@@ -264,5 +281,119 @@ pub fn check_player_death(
 
     if health.current <= 0.0 {
         next_state.set(GameState::GameOver);
+    }
+}
+
+pub fn handle_status_applications(
+    mut events: EventReader<ApplyStatusEvent>,
+    mut query: Query<&mut ElementalStatus>,
+) {
+    for event in events.read() {
+        if let Ok(mut status) = query.get_mut(event.target) {
+            match event.effect {
+                PassiveEffect::ChanceFire(_) => {
+                    status.fire_stacks = (status.fire_stacks + 1).min(10)
+                }
+                PassiveEffect::ChanceIce(_) => status.ice_stacks = (status.ice_stacks + 1).min(10),
+                PassiveEffect::ChanceLightning(_) => {
+                    status.lightning_stacks = (status.lightning_stacks + 1).min(10)
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+pub fn update_elemental_statuses(
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut ElementalStatus, &mut Sprite, &mut Enemy)>,
+    mut damage_events: EventWriter<DamageEvent>,
+    player_query: Query<Entity, With<Player>>,
+) {
+    let player_entity = player_query.get_single().ok();
+
+    for (entity, mut status, mut sprite, mut enemy) in query.iter_mut() {
+        // Visual feedback based on dominant status
+        if status.fire_stacks > status.ice_stacks && status.fire_stacks > status.lightning_stacks {
+            sprite.color = Color::srgb(1.0, 0.5, 0.5);
+        } else if status.ice_stacks > status.fire_stacks
+            && status.ice_stacks > status.lightning_stacks
+        {
+            sprite.color = Color::srgb(0.5, 0.8, 1.0);
+        } else if status.lightning_stacks > status.fire_stacks
+            && status.lightning_stacks > status.ice_stacks
+        {
+            sprite.color = Color::srgb(1.0, 1.0, 0.5);
+        }
+
+        // Fire effect: Ignite (DoT)
+        if status.fire_stacks >= 10 {
+            damage_events.send(DamageEvent {
+                target: entity,
+                attacker: player_entity,
+                amount: 5.0 * time.delta_seconds() * 60.0,
+                is_crit: false,
+            });
+        }
+    }
+}
+
+pub fn handle_mastery_effects(
+    mut commands: Commands,
+    player_query: Query<(Entity, &PlayerPassives), With<Player>>,
+    mut enemies: Query<(Entity, &mut ElementalStatus, &Transform), With<Enemy>>,
+) {
+    let Ok((player_entity, passives)) = player_query.get_single() else {
+        return;
+    };
+
+    for (entity, mut status, transform) in enemies.iter_mut() {
+        // Fire Mastery: Combustion
+        if status.fire_stacks >= 10 && passives.unlocked_nodes.contains(&12) && !status.is_ignited {
+            status.is_ignited = true;
+            commands.spawn((
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::srgba(1.0, 0.2, 0.0, 0.8),
+                        custom_size: Some(Vec2::splat(200.0)),
+                        ..default()
+                    },
+                    transform: Transform::from_translation(transform.translation),
+                    ..default()
+                },
+                AoeEffect {
+                    damage: 60.0,
+                    owner: player_entity,
+                    tick_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
+                    duration: Timer::from_seconds(0.4, TimerMode::Once),
+                    hit_this_tick: HashSet::new(),
+                },
+            ));
+        }
+
+        // Ice Mastery: Shatter
+        if status.ice_stacks >= 10 && passives.unlocked_nodes.contains(&15) && !status.is_frozen {
+            status.is_frozen = true;
+            // Freeze logic could go here (stopping enemy AI)
+            // For now, big damage spike
+            commands.spawn((
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::srgba(0.0, 0.8, 1.0, 0.8),
+                        custom_size: Some(Vec2::splat(150.0)),
+                        ..default()
+                    },
+                    transform: Transform::from_translation(transform.translation),
+                    ..default()
+                },
+                AoeEffect {
+                    damage: 80.0,
+                    owner: player_entity,
+                    tick_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
+                    duration: Timer::from_seconds(0.2, TimerMode::Once),
+                    hit_this_tick: HashSet::new(),
+                },
+            ));
+        }
     }
 }

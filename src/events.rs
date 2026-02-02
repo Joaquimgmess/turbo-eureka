@@ -1,3 +1,4 @@
+use crate::components::PassiveEffect;
 use bevy::prelude::*;
 
 #[derive(Event)]
@@ -12,4 +13,10 @@ pub struct DamageEvent {
 pub struct SpawnXpOrbEvent {
     pub position: Vec3,
     pub value: u32,
+}
+
+#[derive(Event)]
+pub struct ApplyStatusEvent {
+    pub target: Entity,
+    pub effect: PassiveEffect,
 }

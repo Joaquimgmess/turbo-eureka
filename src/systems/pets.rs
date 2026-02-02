@@ -79,7 +79,6 @@ pub fn pet_actions(
                     }
                 }
                 PetType::Damager => {
-
                     let pet_pos = transform.translation.truncate();
                     let mut nearest: Option<(Entity, f32)> = None;
 
@@ -107,9 +106,7 @@ pub fn pet_actions(
                         stats.damage = (stats.damage).max(35.0);
                     }
                 }
-                PetType::Tanker => {
-
-                }
+                PetType::Tanker => {}
             }
         }
     }

@@ -56,7 +56,6 @@ pub fn setup_passive_ui(
             PassiveUi,
         ))
         .with_children(|parent| {
-
             parent.spawn(TextBundle::from_section(
                 "PASSIVE TREE",
                 TextStyle {
@@ -91,7 +90,6 @@ pub fn setup_passive_ui(
                     ..default()
                 })
                 .with_children(|map| {
-
                     for &(id1, id2) in &passive_tree.connections {
                         if let (Some(node1), Some(node2)) =
                             (passive_tree.nodes.get(&id1), passive_tree.nodes.get(&id2))
