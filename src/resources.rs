@@ -1,9 +1,35 @@
 use crate::components::{PassiveNode, PetType, PlayerClass};
 use bevy::prelude::*;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
 use std::collections::HashMap;
 
 #[derive(Resource, Default)]
 pub struct EnemyCount(pub usize);
+
+#[derive(Resource)]
+pub struct GameRng(pub StdRng);
+
+impl Default for GameRng {
+    fn default() -> Self {
+        Self(StdRng::from_entropy())
+    }
+}
+
+#[derive(Resource)]
+pub struct HitStop {
+    pub timer: Timer,
+    pub active: bool,
+}
+
+impl Default for HitStop {
+    fn default() -> Self {
+        Self {
+            timer: Timer::from_seconds(0.0, TimerMode::Once),
+            active: false,
+        }
+    }
+}
 
 #[derive(Resource, Default)]
 pub struct MapTier(pub u32);

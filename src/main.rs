@@ -26,6 +26,7 @@ fn main() {
         .insert_resource(CursorWorldPos(Vec2::ZERO))
         .insert_resource(GameStats::default())
         .insert_resource(PendingSelection::default())
+        .init_resource::<GameRng>()
         // All game logic in plugins
         .add_plugins((
             UIPlugin,
@@ -35,6 +36,7 @@ fn main() {
             WorldPlugin,
             PassiveTreePlugin,
             SelectionPlugin,
+            GameFeelPlugin,
         ))
         .add_systems(Startup, setup_camera_and_sprites)
         .add_systems(Update, systems::animation::animate_sprite)

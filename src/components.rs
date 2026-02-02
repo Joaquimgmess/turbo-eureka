@@ -310,3 +310,19 @@ pub struct AnimationConfig {
 
 #[derive(Component)]
 pub struct Taunt;
+
+#[derive(Component)]
+pub struct CameraShake {
+    pub trauma: f32,
+}
+
+#[derive(Component)]
+pub struct DamageFlash {
+    pub timer: Timer,
+    pub original_color: Color,
+}
+
+#[derive(Component)]
+pub struct LevelUpRing {
+    pub timer: Timer,
+}
