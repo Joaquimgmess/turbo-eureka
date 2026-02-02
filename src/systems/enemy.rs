@@ -1,5 +1,7 @@
 use crate::components::*;
+use crate::constants::*;
 use crate::events::*;
+use crate::helpers::*;
 use crate::resources::*;
 use bevy::prelude::*;
 use rand::Rng;
@@ -29,7 +31,7 @@ pub fn enemy_ai(
         }
         let to_target = target_pos - enemy_pos;
         let distance = to_target.length();
-        if distance > 80.0 {
+        if distance > ENEMY_STOP_RANGE {
             let direction = to_target.normalize();
             let movement = direction * enemy.speed * time.delta_seconds();
             let new_pos = transform.translation + movement.extend(0.0);
@@ -38,9 +40,7 @@ pub fn enemy_ai(
             for (obs_transform, obs_sprite) in obstacles.iter() {
                 let obs_pos = obs_transform.translation.truncate();
                 let obs_size = obs_sprite.custom_size.unwrap_or(Vec2::splat(50.0)) / 2.0;
-                let dist_x = (new_pos.x - obs_pos.x).abs();
-                let dist_y = (new_pos.y - obs_pos.y).abs();
-                if dist_x < obs_size.x + 30.0 && dist_y < obs_size.y + 30.0 {
+                if point_rect_collision(new_pos.truncate(), obs_pos, obs_size, 30.0) {
                     collision = true;
                     break;
                 }
@@ -81,7 +81,7 @@ pub fn enemy_attack(
         }
         let enemy_pos = transform.translation.truncate();
         let distance = enemy_pos.distance(player_pos);
-        if distance < 85.0 && enemy.attack_cooldown.finished() {
+        if distance < ENEMY_ATTACK_RANGE && enemy.attack_cooldown.finished() {
             enemy.attack_cooldown = Timer::from_seconds(1.0, TimerMode::Once);
             *state = CharacterState::Attacking;
             damage_events.send(DamageEvent {
@@ -100,14 +100,14 @@ pub fn spawn_enemies(
     time: Res<Time>,
     mut game_stats: ResMut<GameStats>,
     player_query: Query<(&Transform, &Level), With<Player>>,
-    enemies: Query<&Enemy>,
+    enemy_count: Res<EnemyCount>,
 ) {
     let Ok((player_transform, player_level)) = player_query.get_single() else {
         return;
     };
     game_stats.time_survived += time.delta_seconds();
-    let max_enemies = (8 + player_level.level * 2).min(30) as usize;
-    if enemies.iter().count() >= max_enemies {
+    let max_enemies = (MAX_ENEMIES_BASE + player_level.level * 2).min(MAX_ENEMIES_CAP) as usize;
+    if enemy_count.0 >= max_enemies {
         return;
     }
     let spawn_chance = 0.025 + (game_stats.time_survived / 200.0).min(0.06);
@@ -119,8 +119,8 @@ pub fn spawn_enemies(
     let angle = rng.gen_range(0.0..std::f32::consts::TAU);
     let distance = rng.gen_range(350.0..550.0);
     let spawn_pos = player_pos + Vec2::from_angle(angle) * distance;
-    let health_scale = 1.0 + (player_level.level as f32 - 1.0) * 0.25;
-    let damage_scale = 1.0 + (player_level.level as f32 - 1.0) * 0.15;
+    let health_scale = 1.0 + (player_level.level as f32 - 1.0) * LEVEL_HEALTH_SCALE;
+    let damage_scale = 1.0 + (player_level.level as f32 - 1.0) * LEVEL_DAMAGE_SCALE;
     let enemy_type = rng.gen_range(0..3);
     let (size, color, health, damage, xp, speed) = match enemy_type {
         0 => (Vec2::new(170.0, 170.0), Color::WHITE, 35.0, 10.0, 12, 85.0),
