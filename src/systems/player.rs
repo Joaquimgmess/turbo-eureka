@@ -200,6 +200,12 @@ pub fn player_attack(
             } else {
                 None
             };
+            let base_size = if player.class == PlayerClass::Archer {
+                Vec2::new(48.0, 48.0)
+            } else {
+                Vec2::new(24.0, 24.0)
+            };
+            let stretched_size = Vec2::new(base_size.x * 1.6, base_size.y);
             commands.spawn((
                 SpriteBundle {
                     texture: texture.unwrap_or_default(),
@@ -209,11 +215,7 @@ pub fn player_attack(
                         } else {
                             proj_color
                         },
-                        custom_size: Some(if player.class == PlayerClass::Archer {
-                            Vec2::new(32.0, 32.0)
-                        } else {
-                            Vec2::new(14.0, 14.0)
-                        }),
+                        custom_size: Some(stretched_size),
                         ..default()
                     },
                     transform: Transform::from_translation(spawn_pos.extend(5.0))
@@ -238,7 +240,40 @@ pub fn player_attack(
                 },
                 Velocity(direction * PROJECTILE_SPEED),
                 Lifetime(Timer::from_seconds(PROJECTILE_LIFETIME, TimerMode::Once)),
+                ProjectileTrail {
+                    spawn_timer: Timer::from_seconds(0.02, TimerMode::Repeating),
+                    color: if is_crit {
+                        Color::srgba(1.0, 1.0, 0.2, 0.6)
+                    } else {
+                        proj_color.with_alpha(0.5)
+                    },
+                },
             ));
+            let flash_color = if is_crit {
+                Color::srgba(1.0, 1.0, 0.5, 0.9)
+            } else {
+                Color::srgba(1.0, 0.9, 0.6, 0.8)
+            };
+            let flash_size = if is_crit { 45.0 } else { 30.0 };
+            commands.spawn((
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: flash_color,
+                        custom_size: Some(Vec2::splat(flash_size)),
+                        ..default()
+                    },
+                    transform: Transform::from_translation(spawn_pos.extend(6.0)),
+                    ..default()
+                },
+                MuzzleFlash {
+                    lifetime: Timer::from_seconds(0.06, TimerMode::Once),
+                },
+            ));
+            commands.entity(player_entity).insert(AttackRecoil {
+                timer: Timer::from_seconds(0.08, TimerMode::Once),
+                direction: -direction,
+                recoil_amount: 3.0,
+            });
         }
     }
     if mouse.pressed(MouseButton::Right) {

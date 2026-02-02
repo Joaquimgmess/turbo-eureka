@@ -4,6 +4,7 @@ pub mod enemy;
 pub mod passive_ui;
 pub mod pets;
 pub mod player;
+pub mod progression;
 pub mod selection;
 pub mod ui;
 pub mod world;

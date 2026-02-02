@@ -101,16 +101,24 @@ pub fn spawn_enemies(
     mut game_stats: ResMut<GameStats>,
     player_query: Query<(&Transform, &Level), With<Player>>,
     enemy_count: Res<EnemyCount>,
+    horde_wave: Res<HordeWaveActive>,
 ) {
     let Ok((player_transform, player_level)) = player_query.get_single() else {
         return;
     };
     game_stats.time_survived += time.delta_seconds();
-    let max_enemies = (MAX_ENEMIES_BASE + player_level.level * 2).min(MAX_ENEMIES_CAP) as usize;
+    let horde_mult = if horde_wave.active {
+        HORDE_SPAWN_MULTIPLIER
+    } else {
+        1.0
+    };
+    let max_enemies = ((MAX_ENEMIES_BASE + player_level.level * 2).min(MAX_ENEMIES_CAP) as f32
+        * horde_mult) as usize;
     if enemy_count.0 >= max_enemies {
         return;
     }
-    let spawn_chance = 0.025 + (game_stats.time_survived / 200.0).min(0.06);
+    let base_spawn_chance = 0.025 + (game_stats.time_survived / 200.0).min(0.06);
+    let spawn_chance = base_spawn_chance * horde_mult;
     if rand::thread_rng().r#gen::<f32>() > spawn_chance {
         return;
     }
@@ -122,8 +130,16 @@ pub fn spawn_enemies(
     let health_scale = 1.0 + (player_level.level as f32 - 1.0) * LEVEL_HEALTH_SCALE;
     let damage_scale = 1.0 + (player_level.level as f32 - 1.0) * LEVEL_DAMAGE_SCALE;
     let enemy_type = rng.gen_range(0..3);
-    let (size, color, health, damage, xp, speed) = match enemy_type {
-        0 => (Vec2::new(170.0, 170.0), Color::WHITE, 35.0, 10.0, 12, 85.0),
+    let (size, color, health, damage, xp, speed, enemy_size) = match enemy_type {
+        0 => (
+            Vec2::new(170.0, 170.0),
+            Color::WHITE,
+            35.0,
+            10.0,
+            12,
+            85.0,
+            EnemySize::Medium,
+        ),
         1 => (
             Vec2::new(220.0, 220.0),
             Color::srgb(1.0, 0.6, 0.6),
@@ -131,6 +147,7 @@ pub fn spawn_enemies(
             15.0,
             30,
             60.0,
+            EnemySize::Large,
         ),
         _ => (
             Vec2::new(140.0, 140.0),
@@ -139,6 +156,7 @@ pub fn spawn_enemies(
             18.0,
             18,
             130.0,
+            EnemySize::Small,
         ),
     };
     let enemy_entity = commands
@@ -149,6 +167,7 @@ pub fn spawn_enemies(
                 attack_cooldown: Timer::from_seconds(1.0, TimerMode::Once),
                 speed,
             },
+            EnemySizeTag(enemy_size),
             ElementalStatus::default(),
             Health {
                 current: health * health_scale,
@@ -207,30 +226,57 @@ pub fn spawn_enemies(
 
 pub fn check_enemy_death(
     mut commands: Commands,
-    enemies: Query<(Entity, &Health, &Transform, &Enemy, Option<&Boss>)>,
+    enemies: Query<(
+        Entity,
+        &Health,
+        &Transform,
+        &Enemy,
+        &Sprite,
+        Option<&Boss>,
+        Option<&MiniBoss>,
+        Option<&LastDamageInfo>,
+    )>,
     player_query: Query<(Entity, &PlayerPassives), With<Player>>,
     mut game_stats: ResMut<GameStats>,
-    mut map_tier: ResMut<MapTier>,
     mut xp_events: EventWriter<SpawnXpOrbEvent>,
+    mut kill_feedback: ResMut<KillFeedback>,
+    mut slow_mo: ResMut<SlowMotion>,
 ) {
     let Ok((player_entity, passives)) = player_query.get_single() else {
         return;
     };
-    for (entity, health, transform, enemy, boss) in enemies.iter() {
+    let mut kills_this_frame = 0;
+    let mut any_crit_kill = false;
+    for (entity, health, transform, enemy, sprite, boss, mini_boss, last_damage) in enemies.iter() {
         if health.current <= 0.0 {
+            if boss.is_some() {
+                continue;
+            }
+            kills_this_frame += 1;
             game_stats.enemies_killed += 1;
+            let was_crit = last_damage.map(|d| d.was_crit).unwrap_or(false);
+            if was_crit {
+                any_crit_kill = true;
+            }
             xp_events.send(SpawnXpOrbEvent {
                 position: transform.translation,
                 value: enemy.xp_value,
             });
-            if boss.is_some() {
-                map_tier.0 += 1;
+            let particle_color = sprite.color;
+            let particle_count = if mini_boss.is_some() { 20 } else { 12 };
+            crate::plugins::game_feel::spawn_death_particles(
+                &mut commands,
+                transform.translation,
+                particle_color,
+                particle_count,
+            );
+            if mini_boss.is_some() {
                 commands.spawn((
                     Loot,
                     SpriteBundle {
                         sprite: Sprite {
-                            color: Color::srgb(1.0, 0.8, 0.0),
-                            custom_size: Some(Vec2::splat(25.0)),
+                            color: Color::srgb(0.8, 0.6, 1.0),
+                            custom_size: Some(Vec2::splat(20.0)),
                             ..default()
                         },
                         transform: Transform::from_translation(transform.translation),
@@ -259,6 +305,18 @@ pub fn check_enemy_death(
                 ));
             }
             commands.entity(entity).despawn_recursive();
+        }
+    }
+    if kills_this_frame > 0 {
+        kill_feedback.recent_kills += kills_this_frame;
+        kill_feedback.kill_timer = Timer::from_seconds(0.5, TimerMode::Once);
+        if any_crit_kill {
+            kill_feedback.last_kill_was_crit = true;
+        }
+        let trigger_slow_mo =
+            (kill_feedback.recent_kills >= 3) || (any_crit_kill && kills_this_frame >= 1);
+        if trigger_slow_mo && !slow_mo.active {
+            crate::plugins::game_feel::trigger_slow_motion(&mut slow_mo, 0.1, 0.3);
         }
     }
 }

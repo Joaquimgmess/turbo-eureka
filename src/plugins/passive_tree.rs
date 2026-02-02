@@ -13,7 +13,14 @@ impl Plugin for PassiveTreePlugin {
             .add_systems(OnEnter(GameState::PassiveTree), setup_passive_ui)
             .add_systems(
                 Update,
-                (toggle_passive_ui, handle_node_click, update_passive_ui)
+                (
+                    toggle_passive_ui,
+                    handle_passive_tree_controls,
+                    track_hovered_node,
+                    handle_node_click,
+                    update_passive_ui,
+                )
+                    .chain()
                     .run_if(in_state(GameState::PassiveTree)),
             )
             .add_systems(OnExit(GameState::PassiveTree), despawn_passive_ui)

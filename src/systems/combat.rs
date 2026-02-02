@@ -169,6 +169,8 @@ pub fn process_damage(
             Option<&mut ElementalStatus>,
             Option<&PlayerPassives>,
             &Sprite,
+            Option<&EnemySizeTag>,
+            Option<&Boss>,
         ),
         Without<Player>,
     >,
@@ -185,7 +187,7 @@ pub fn process_damage(
     >,
     mut game_stats: ResMut<GameStats>,
     mut status_events: EventWriter<ApplyStatusEvent>,
-    mut camera_shake: Query<&mut CameraShake, With<Camera2d>>,
+    mut camera_query: Query<(Entity, &mut CameraShake, &OrthographicProjection), With<Camera2d>>,
     mut hit_stop: ResMut<HitStop>,
 ) {
     let mut rng = rand::thread_rng();
@@ -226,16 +228,21 @@ pub fn process_damage(
         let mut target_transform_pos = Vec3::ZERO;
         let mut target_sprite_color = Color::WHITE;
         let target_is_crit = event.is_crit;
+        let mut attack_direction = Vec2::ZERO;
+        let mut enemy_size;
+        let mut will_kill = false;
 
         if let Ok((
             mut health,
             mut shield,
-            mut transform,
+            transform,
             stats,
             invuln,
             status,
             target_passives,
             sprite,
+            size_tag,
+            is_boss,
         )) = target_query.get_mut(event.target)
         {
             if invuln.is_some() {
@@ -302,12 +309,33 @@ pub fn process_damage(
                     _ => {}
                 }
             }
+
+            enemy_size = if is_boss.is_some() {
+                EnemySize::Boss
+            } else if let Some(tag) = size_tag {
+                tag.0
+            } else {
+                EnemySize::Medium
+            };
+
             if let Some(attacker_pos) = knockback_info {
-                let dir = (transform.translation - attacker_pos)
+                attack_direction = (transform.translation - attacker_pos)
                     .truncate()
                     .normalize_or_zero();
-                transform.translation += (dir * KNOCKBACK_FORCE).extend(0.0);
+                crate::plugins::game_feel::apply_knockback(
+                    &mut commands,
+                    event.target,
+                    attack_direction,
+                    KNOCKBACK_FORCE,
+                    enemy_size,
+                );
             }
+
+            will_kill = health.current <= 0.0;
+
+            commands.entity(event.target).try_insert(LastDamageInfo {
+                was_crit: event.is_crit,
+            });
         } else if let Ok((_e, mut health, mut shield, transform, passives, sprite)) =
             player_query.get_mut(event.target)
         {
@@ -348,15 +376,46 @@ pub fn process_damage(
             );
 
             if target_is_player {
-                if let Ok(mut shake) = camera_shake.get_single_mut() {
+                if let Ok((_, mut shake, _)) = camera_query.get_single_mut() {
                     let trauma = (final_damage / 50.0).min(0.5);
                     crate::plugins::game_feel::add_trauma(&mut shake, trauma);
                 }
-            } else if target_is_crit {
-                if let Ok(mut shake) = camera_shake.get_single_mut() {
-                    crate::plugins::game_feel::add_trauma(&mut shake, 0.15);
+            } else {
+                let hit_type = if will_kill {
+                    HitType::Kill
+                } else if target_is_crit {
+                    HitType::Crit
+                } else {
+                    HitType::Normal
+                };
+
+                crate::plugins::game_feel::trigger_hit_stop_by_type(&mut hit_stop, hit_type);
+
+                if let Ok((camera_entity, mut shake, projection)) = camera_query.get_single_mut() {
+                    let trauma = match hit_type {
+                        HitType::Kill => 0.35,
+                        HitType::Crit => 0.2,
+                        HitType::Normal => 0.08,
+                    };
+
+                    if attack_direction != Vec2::ZERO {
+                        crate::plugins::game_feel::add_directional_trauma(
+                            &mut shake,
+                            trauma,
+                            attack_direction,
+                        );
+                    } else {
+                        crate::plugins::game_feel::add_trauma(&mut shake, trauma);
+                    }
+
+                    if hit_type == HitType::Crit || hit_type == HitType::Kill {
+                        crate::plugins::game_feel::trigger_zoom_punch(
+                            &mut commands,
+                            camera_entity,
+                            projection.scale,
+                        );
+                    }
                 }
-                crate::plugins::game_feel::trigger_hit_stop(&mut hit_stop, 40);
             }
 
             if let Some(attacker_entity) = event.attacker {

@@ -314,6 +314,45 @@ pub struct Taunt;
 #[derive(Component)]
 pub struct CameraShake {
     pub trauma: f32,
+    pub direction: Option<Vec2>,
+}
+
+#[derive(Component)]
+pub struct CameraZoomPunch {
+    pub timer: Timer,
+    pub returning: bool,
+    pub base_scale: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HitType {
+    Normal,
+    Crit,
+    Kill,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum EnemySize {
+    Small,
+    #[default]
+    Medium,
+    Large,
+    Boss,
+}
+
+#[derive(Component, Default)]
+pub struct EnemySizeTag(pub EnemySize);
+
+#[derive(Component)]
+pub struct KnockbackEffect {
+    pub direction: Vec2,
+    pub force: f32,
+    pub timer: Timer,
+}
+
+#[derive(Component, Default)]
+pub struct CameraTarget {
+    pub position: Vec2,
 }
 
 #[derive(Component)]
@@ -332,3 +371,122 @@ pub struct BossHealthBarUi;
 
 #[derive(Component)]
 pub struct BossHealthBarFill;
+
+#[derive(Component)]
+pub struct ProjectileTrail {
+    pub spawn_timer: Timer,
+    pub color: Color,
+}
+
+#[derive(Component)]
+pub struct TrailParticle {
+    pub lifetime: Timer,
+    pub initial_size: f32,
+}
+
+#[derive(Component)]
+pub struct MuzzleFlash {
+    pub lifetime: Timer,
+}
+
+#[derive(Component)]
+pub struct AttackRecoil {
+    pub timer: Timer,
+    pub direction: Vec2,
+    pub recoil_amount: f32,
+}
+
+#[derive(Component)]
+pub struct DeathParticle {
+    pub velocity: Vec2,
+    pub lifetime: Timer,
+    pub rotation_speed: f32,
+}
+
+#[derive(Component, Default)]
+pub struct LastDamageInfo {
+    pub was_crit: bool,
+}
+
+// === PROGRESSION EVENTS ===
+
+#[derive(Component)]
+pub struct Elite {
+    pub aura_radius: f32,
+}
+
+#[derive(Component)]
+pub struct TreasureGoblin {
+    pub flee_timer: Timer,
+    pub death_timer: Timer,
+}
+
+#[derive(Component)]
+pub struct Shrine {
+    pub buff_type: ShrineType,
+    pub used: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShrineType {
+    Damage,
+    Speed,
+    Defense,
+    CritChance,
+}
+
+#[derive(Component)]
+pub struct ShrineBuff {
+    pub buff_type: ShrineType,
+    pub timer: Timer,
+}
+
+#[derive(Component)]
+pub struct ChallengeZone {
+    pub radius: f32,
+    pub bonus_xp_mult: f32,
+    pub duration: Timer,
+}
+
+#[derive(Component)]
+pub struct MiniBoss;
+
+#[derive(Component)]
+pub struct HordeWaveMarker;
+
+#[derive(Component)]
+pub struct BossEntrance {
+    pub timer: Timer,
+    pub phase: BossEntrancePhase,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BossEntrancePhase {
+    Darkening,
+    Spawning,
+    Complete,
+}
+
+#[derive(Component)]
+pub struct BossDeathEffect {
+    pub timer: Timer,
+    pub slow_mo_active: bool,
+}
+
+#[derive(Component)]
+pub struct ScreenDarken {
+    pub alpha: f32,
+}
+
+#[derive(Component)]
+pub struct BossSlainText {
+    pub timer: Timer,
+}
+
+#[derive(Component)]
+pub struct EliteAura {
+    pub owner: Entity,
+}
+
+#[derive(Component)]
+pub struct ChallengeZoneVisual;

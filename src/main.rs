@@ -36,6 +36,7 @@ fn main() {
             PassiveTreePlugin,
             SelectionPlugin,
             GameFeelPlugin,
+            ProgressionPlugin,
         ))
         .add_systems(Startup, setup_camera_and_sprites)
         .add_systems(Update, systems::animation::animate_sprite)

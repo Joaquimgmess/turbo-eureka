@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::components::*;
+use crate::plugins::ui::HudRoot;
 use crate::resources::*;
 use crate::systems::pets::spawn_pet;
 use crate::systems::player::spawn_player;
@@ -295,15 +296,7 @@ pub fn restart_game(
     mut next_state: ResMut<NextState<GameState>>,
     mut game_stats: ResMut<GameStats>,
     mut pending: ResMut<PendingSelection>,
-    all_entities: Query<
-        Entity,
-        (
-            Without<Camera2d>,
-            Without<Window>,
-            Without<CooldownUi>,
-            Without<StatsUi>,
-        ),
-    >,
+    all_entities: Query<Entity, (Without<Camera2d>, Without<Window>, Without<HudRoot>)>,
     game_over_ui: Query<Entity, With<GameOverUi>>,
 ) {
     if *state.get() == GameState::GameOver && keyboard.just_pressed(KeyCode::KeyR) {

@@ -3,7 +3,6 @@ use bevy::prelude::*;
 use crate::components::*;
 use crate::resources::EnemyCount;
 use crate::systems::enemy::*;
-use crate::systems::world::spawn_boss;
 
 pub struct EnemyPlugin;
 
@@ -16,7 +15,6 @@ impl Plugin for EnemyPlugin {
                 enemy_ai,
                 enemy_attack,
                 spawn_enemies,
-                spawn_boss,
                 check_enemy_death,
                 handle_status_applications,
                 update_elemental_statuses,
