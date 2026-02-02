@@ -230,7 +230,6 @@ pub fn check_enemy_death(
             });
 
             if boss.is_some() {
-                // Drop a relic
                 commands.spawn((
                     Loot,
                     SpriteBundle {
@@ -246,6 +245,7 @@ pub fn check_enemy_death(
             }
 
             if passives.unlocked_nodes.contains(&9) {
+                // Instant burst instead of zone
                 commands.spawn((
                     SpriteBundle {
                         sprite: Sprite {
@@ -259,8 +259,8 @@ pub fn check_enemy_death(
                     AoeEffect {
                         damage: 40.0,
                         owner: player_entity,
-                        tick_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
-                        duration: Timer::from_seconds(0.3, TimerMode::Once),
+                        tick_timer: Timer::from_seconds(0.01, TimerMode::Once),
+                        duration: Timer::from_seconds(0.1, TimerMode::Once),
                         hit_this_tick: HashSet::new(),
                     },
                 ));
@@ -313,7 +313,6 @@ pub fn update_elemental_statuses(
     let player_entity = player_query.get_single().ok();
 
     for (entity, mut status, mut sprite, mut enemy) in query.iter_mut() {
-        // Visual feedback based on dominant status
         if status.fire_stacks > status.ice_stacks && status.fire_stacks > status.lightning_stacks {
             sprite.color = Color::srgb(1.0, 0.5, 0.5);
         } else if status.ice_stacks > status.fire_stacks
@@ -326,7 +325,6 @@ pub fn update_elemental_statuses(
             sprite.color = Color::srgb(1.0, 1.0, 0.5);
         }
 
-        // Fire effect: Ignite (DoT)
         if status.fire_stacks >= 10 {
             damage_events.send(DamageEvent {
                 target: entity,
@@ -347,8 +345,7 @@ pub fn handle_mastery_effects(
         return;
     };
 
-    for (entity, mut status, transform) in enemies.iter_mut() {
-        // Fire Mastery: Combustion
+    for (_entity, mut status, transform) in enemies.iter_mut() {
         if status.fire_stacks >= 10 && passives.unlocked_nodes.contains(&12) && !status.is_ignited {
             status.is_ignited = true;
             commands.spawn((
@@ -364,18 +361,15 @@ pub fn handle_mastery_effects(
                 AoeEffect {
                     damage: 60.0,
                     owner: player_entity,
-                    tick_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
-                    duration: Timer::from_seconds(0.4, TimerMode::Once),
+                    tick_timer: Timer::from_seconds(0.01, TimerMode::Once),
+                    duration: Timer::from_seconds(0.15, TimerMode::Once),
                     hit_this_tick: HashSet::new(),
                 },
             ));
         }
 
-        // Ice Mastery: Shatter
         if status.ice_stacks >= 10 && passives.unlocked_nodes.contains(&15) && !status.is_frozen {
             status.is_frozen = true;
-            // Freeze logic could go here (stopping enemy AI)
-            // For now, big damage spike
             commands.spawn((
                 SpriteBundle {
                     sprite: Sprite {
@@ -389,8 +383,8 @@ pub fn handle_mastery_effects(
                 AoeEffect {
                     damage: 80.0,
                     owner: player_entity,
-                    tick_timer: Timer::from_seconds(0.1, TimerMode::Repeating),
-                    duration: Timer::from_seconds(0.2, TimerMode::Once),
+                    tick_timer: Timer::from_seconds(0.01, TimerMode::Once),
+                    duration: Timer::from_seconds(0.15, TimerMode::Once),
                     hit_this_tick: HashSet::new(),
                 },
             ));
