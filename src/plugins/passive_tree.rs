@@ -38,7 +38,6 @@ fn setup_passive_tree_data(mut commands: Commands) {
         armor: 0.0,
     };
 
-    // Origin node
     nodes.insert(
         0,
         PassiveNode {
@@ -54,7 +53,6 @@ fn setup_passive_tree_data(mut commands: Commands) {
         },
     );
 
-    // Damage branch
     nodes.insert(
         200,
         PassiveNode {
@@ -170,7 +168,6 @@ fn setup_passive_tree_data(mut commands: Commands) {
         },
     );
 
-    // Defense branch
     nodes.insert(
         100,
         PassiveNode {
@@ -261,7 +258,6 @@ fn setup_passive_tree_data(mut commands: Commands) {
         },
     );
 
-    // Elemental nodes
     nodes.insert(
         11,
         PassiveNode {
@@ -329,7 +325,6 @@ fn setup_passive_tree_data(mut commands: Commands) {
         },
     );
 
-    // Connections
     connections.extend([
         (0, 200),
         (200, 201),

@@ -1,4 +1,3 @@
-// src/plugins/combat.rs
 use bevy::prelude::*;
 
 use crate::components::*;

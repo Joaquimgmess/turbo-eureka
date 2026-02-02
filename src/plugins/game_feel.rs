@@ -105,7 +105,6 @@ fn update_level_up_rings(
     }
 }
 
-// Public helpers for other systems to use
 pub fn add_trauma(shake: &mut CameraShake, amount: f32) {
     shake.trauma = (shake.trauma + amount).min(1.0);
 }

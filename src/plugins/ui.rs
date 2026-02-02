@@ -22,7 +22,6 @@ impl Plugin for UIPlugin {
 }
 
 fn setup_ui(mut commands: Commands) {
-    // Cooldown/Skills UI (top-left)
     commands.spawn((
         TextBundle::from_sections([
             TextSection::new(
@@ -75,7 +74,6 @@ fn setup_ui(mut commands: Commands) {
         CooldownUi,
     ));
 
-    // Stats UI (top-right)
     commands.spawn((
         TextBundle::from_sections([
             TextSection::new(
@@ -104,7 +102,6 @@ fn setup_ui(mut commands: Commands) {
         StatsUi,
     ));
 
-    // Controls hint (bottom-left)
     commands.spawn(
         TextBundle::from_section(
             "WASD: Move | LMB: Shoot | RMB: Melee | Q: Dash | Space: Nova | Tab: Stats | P: Passives",

@@ -91,12 +91,10 @@ pub fn collect_xp(
 
                 passives.points += 1;
 
-                // Screen shake
                 if let Ok(mut shake) = camera_shake.get_single_mut() {
                     crate::plugins::game_feel::add_trauma(&mut shake, 0.3);
                 }
 
-                // Level up text
                 commands.spawn((
                     Text2dBundle {
                         text: Text::from_section(
@@ -118,7 +116,6 @@ pub fn collect_xp(
                     },
                 ));
 
-                // Expanding ring
                 commands.spawn((
                     SpriteBundle {
                         sprite: Sprite {
@@ -312,7 +309,6 @@ pub fn setup_minimap(mut commands: Commands) {
             },
         ))
         .with_children(|parent| {
-            // Player icon - persistent
             parent.spawn((
                 MinimapPlayerIcon,
                 NodeBundle {
@@ -349,24 +345,19 @@ pub fn update_minimap(
     let player_pos = player_transform.translation.truncate();
     let map_scale = 150.0 / (MAP_BOUNDS * 2.0);
 
-    // Update player icon position
     if let Ok(mut style) = player_icon.get_single_mut() {
         style.left = Val::Px(75.0 + player_pos.x * map_scale - 2.0);
         style.bottom = Val::Px(75.0 + player_pos.y * map_scale - 2.0);
     }
 
-    // Track existing enemy icons
     let mut existing: std::collections::HashSet<Entity> =
         enemy_icons.iter().map(|(_, icon)| icon.0).collect();
 
-    // Update or create enemy icons
     for (enemy_entity, transform, boss) in enemies_query.iter() {
         let pos = transform.translation.truncate();
 
         if existing.remove(&enemy_entity) {
-            // Enemy already has icon - no update needed (position updates are expensive in UI)
         } else {
-            // Create new icon
             let (color, size) = if boss.is_some() {
                 (Color::srgb(1.0, 1.0, 0.0), 6.0)
             } else {
@@ -393,7 +384,6 @@ pub fn update_minimap(
         }
     }
 
-    // Remove icons for dead enemies
     for (icon_entity, icon) in enemy_icons.iter() {
         if existing.contains(&icon.0) {
             commands.entity(icon_entity).despawn();

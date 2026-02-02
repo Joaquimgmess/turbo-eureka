@@ -27,7 +27,6 @@ fn main() {
         .insert_resource(GameStats::default())
         .insert_resource(PendingSelection::default())
         .init_resource::<GameRng>()
-        // All game logic in plugins
         .add_plugins((
             UIPlugin,
             CombatPlugin,
@@ -52,10 +51,8 @@ fn setup_camera_and_sprites(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    // Camera
     commands.spawn(Camera2dBundle::default());
 
-    // Character sprites resource
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(100), 6, 1, None, None);
     let layout_handle = texture_atlases.add(layout);
 
