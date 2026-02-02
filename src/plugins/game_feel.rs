@@ -115,7 +115,7 @@ pub fn trigger_hit_stop(hit_stop: &mut HitStop, duration_ms: u64) {
 }
 
 pub fn trigger_damage_flash(commands: &mut Commands, entity: Entity, current_color: Color) {
-    commands.entity(entity).insert(DamageFlash {
+    commands.entity(entity).try_insert(DamageFlash {
         timer: Timer::from_seconds(0.12, TimerMode::Once),
         original_color: current_color,
     });
