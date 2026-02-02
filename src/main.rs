@@ -28,6 +28,7 @@ fn main() {
         .insert_resource(GameStats::default())
         .insert_resource(PendingSelection::default())
         .insert_resource(MapTier(1))
+        .insert_resource(MapData::default())
         .add_event::<DamageEvent>()
         .add_event::<SpawnXpOrbEvent>()
         .add_event::<ApplyStatusEvent>()
@@ -47,7 +48,7 @@ fn main() {
             handle_pet_selection.run_if(in_state(GameState::PetSelection)),
         )
         .add_systems(OnExit(GameState::PetSelection), despawn_selection_ui)
-        .add_systems(OnEnter(GameState::Playing), start_game)
+        .add_systems(OnEnter(GameState::Playing), (start_game, setup_minimap))
         .add_systems(
             Update,
             (
@@ -86,6 +87,8 @@ fn main() {
                 spawn_boss,
                 update_hazards,
                 handle_loot,
+                update_minimap,
+                generate_map,
             )
                 .run_if(in_state(GameState::Playing)),
         )

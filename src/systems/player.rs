@@ -10,6 +10,7 @@ pub fn player_movement(
     time: Res<Time>,
     cursor_pos: Res<CursorWorldPos>,
     mut query: Query<(&mut Transform, &Stats, Option<&Dash>, &mut CharacterState), With<Player>>,
+    obstacles: Query<(&Transform, &Sprite), (With<Obstacle>, Without<Player>, Without<Dash>)>,
 ) {
     let Ok((mut transform, stats, dash, mut state)) = query.get_single_mut() else {
         return;
@@ -32,13 +33,29 @@ pub fn player_movement(
     }
     if direction.length_squared() > 0.0 {
         direction = direction.normalize();
-        let mut new_pos =
-            transform.translation + (direction * stats.speed * time.delta_seconds()).extend(0.0);
+        let movement = direction * stats.speed * time.delta_seconds();
+        let mut new_pos = transform.translation + movement.extend(0.0);
 
-        new_pos.x = new_pos.x.clamp(-1200.0, 1200.0);
-        new_pos.y = new_pos.y.clamp(-1200.0, 1200.0);
+        let player_radius = 25.0;
+        let mut collision = false;
+        for (obs_transform, obs_sprite) in obstacles.iter() {
+            let obs_pos = obs_transform.translation.truncate();
+            let obs_size = obs_sprite.custom_size.unwrap_or(Vec2::splat(50.0)) / 2.0;
 
-        transform.translation = new_pos;
+            let dist_x = (new_pos.x - obs_pos.x).abs();
+            let dist_y = (new_pos.y - obs_pos.y).abs();
+
+            if dist_x < (obs_size.x + player_radius) && dist_y < (obs_size.y + player_radius) {
+                collision = true;
+                break;
+            }
+        }
+
+        if !collision {
+            new_pos.x = new_pos.x.clamp(-1200.0, 1200.0);
+            new_pos.y = new_pos.y.clamp(-1200.0, 1200.0);
+            transform.translation = new_pos;
+        }
 
         if *state != CharacterState::Attacking {
             *state = CharacterState::Walking;
@@ -54,7 +71,8 @@ pub fn player_movement(
 pub fn update_dash(
     mut commands: Commands,
     time: Res<Time>,
-    mut query: Query<(Entity, &mut Transform, &mut Dash)>,
+    mut query: Query<(Entity, &mut Transform, &mut Dash), (With<Dash>, Without<Obstacle>)>,
+    obstacles: Query<(&Transform, &Sprite), (With<Obstacle>, Without<Dash>)>,
 ) {
     for (entity, mut transform, mut dash) in query.iter_mut() {
         dash.duration.tick(time.delta());
@@ -64,10 +82,23 @@ pub fn update_dash(
             let movement = dash.direction * dash.speed * time.delta_seconds();
             let mut new_pos = transform.translation + movement.extend(0.0);
 
-            new_pos.x = new_pos.x.clamp(-1200.0, 1200.0);
-            new_pos.y = new_pos.y.clamp(-1200.0, 1200.0);
+            let mut collision = false;
+            for (obs_transform, obs_sprite) in obstacles.iter() {
+                let obs_pos = obs_transform.translation.truncate();
+                let obs_size = obs_sprite.custom_size.unwrap_or(Vec2::splat(50.0)) / 2.0;
+                let dist_x = (new_pos.x - obs_pos.x).abs();
+                let dist_y = (new_pos.y - obs_pos.y).abs();
+                if dist_x < obs_size.x + 20.0 && dist_y < obs_size.y + 20.0 {
+                    collision = true;
+                    break;
+                }
+            }
 
-            transform.translation = new_pos;
+            if !collision {
+                new_pos.x = new_pos.x.clamp(-1200.0, 1200.0);
+                new_pos.y = new_pos.y.clamp(-1200.0, 1200.0);
+                transform.translation = new_pos;
+            }
         }
     }
 }

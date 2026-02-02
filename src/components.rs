@@ -107,6 +107,28 @@ pub struct Hazard {
     pub effect: Option<PassiveEffect>,
 }
 
+#[derive(Component)]
+pub struct Wall;
+
+#[derive(Component)]
+pub struct Obstacle;
+
+#[derive(Component)]
+pub struct MinimapUi;
+
+#[derive(Component)]
+pub struct MinimapIcon {
+    pub entity: Entity,
+    pub icon_type: IconType,
+}
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum IconType {
+    Player,
+    Enemy,
+    Boss,
+}
+
 #[derive(Debug, Clone)]
 pub struct PassiveNode {
     pub id: u32,

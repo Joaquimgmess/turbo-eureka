@@ -5,6 +5,21 @@ use std::collections::HashMap;
 #[derive(Resource, Default)]
 pub struct MapTier(pub u32);
 
+#[derive(Resource)]
+pub struct MapData {
+    pub seed: u64,
+    pub bounds: f32,
+}
+
+impl Default for MapData {
+    fn default() -> Self {
+        Self {
+            seed: 0,
+            bounds: 1200.0,
+        }
+    }
+}
+
 #[derive(Resource, Default)]
 pub struct PassiveTree {
     pub nodes: HashMap<u32, PassiveNode>,

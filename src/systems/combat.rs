@@ -216,17 +216,10 @@ pub fn process_damage(
 
         let mut final_damage = 0.0;
         let mut target_transform_pos = Vec3::ZERO;
-        let mut target_is_crit = event.is_crit;
+        let target_is_crit = event.is_crit;
 
-        if let Ok((
-            mut health,
-            mut shield,
-            mut transform,
-            stats,
-            invuln,
-            mut status,
-            target_passives,
-        )) = target_query.get_mut(event.target)
+        if let Ok((mut health, mut shield, mut transform, stats, invuln, status, target_passives)) =
+            target_query.get_mut(event.target)
         {
             if invuln.is_some() {
                 continue;
@@ -297,7 +290,7 @@ pub fn process_damage(
                     .normalize_or_zero();
                 transform.translation += (dir * 35.0).extend(0.0);
             }
-        } else if let Ok((_e, mut health, mut shield, mut transform, passives)) =
+        } else if let Ok((_e, mut health, mut shield, transform, passives)) =
             player_query.get_mut(event.target)
         {
             let mut armor = 0.0;

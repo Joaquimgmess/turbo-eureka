@@ -98,7 +98,7 @@ pub fn collect_xp(
 pub fn spawn_boss(
     mut commands: Commands,
     time: Res<Time>,
-    mut game_stats: ResMut<GameStats>,
+    game_stats: Res<GameStats>,
     map_tier: Res<MapTier>,
     sprites: Res<CharacterSprites>,
     player_query: Query<&Transform, With<Player>>,
@@ -187,4 +187,150 @@ pub fn handle_loot(
             }
         }
     }
+}
+
+pub fn generate_map(
+    mut commands: Commands,
+    map_tier: Res<MapTier>,
+    mut map_data: ResMut<MapData>,
+    walls: Query<Entity, With<Wall>>,
+    obstacles: Query<Entity, With<Obstacle>>,
+) {
+    if map_data.seed == map_tier.0 as u64 {
+        return;
+    }
+    map_data.seed = map_tier.0 as u64;
+
+    for entity in walls.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+    for entity in obstacles.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+
+    let bounds = map_data.bounds;
+    let mut rng = rand::thread_rng();
+
+    for x in (-bounds as i32..=bounds as i32).step_by(200) {
+        for y in (-bounds as i32..=bounds as i32).step_by(200) {
+            let pos = Vec2::new(x as f32, y as f32);
+            commands.spawn((SpriteBundle {
+                sprite: Sprite {
+                    color: Color::srgb(0.15, 0.15, 0.18),
+                    custom_size: Some(Vec2::splat(195.0)),
+                    ..default()
+                },
+                transform: Transform::from_translation(pos.extend(-1.0)),
+                ..default()
+            },));
+        }
+    }
+
+    for _ in 0..20 {
+        let x = rng.gen_range(-bounds..bounds);
+        let y = rng.gen_range(-bounds..bounds);
+        let size = rng.gen_range(40.0..100.0);
+
+        commands.spawn((
+            Obstacle,
+            Wall,
+            SpriteBundle {
+                sprite: Sprite {
+                    color: Color::srgb(0.3, 0.3, 0.35),
+                    custom_size: Some(Vec2::splat(size)),
+                    ..default()
+                },
+                transform: Transform::from_translation(Vec3::new(x, y, 2.0)),
+                ..default()
+            },
+        ));
+    }
+}
+
+pub fn setup_minimap(mut commands: Commands) {
+    commands
+        .spawn((
+            MinimapUi,
+            NodeBundle {
+                style: Style {
+                    width: Val::Px(150.0),
+                    height: Val::Px(150.0),
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(10.0),
+                    right: Val::Px(150.0),
+                    border: UiRect::all(Val::Px(2.0)),
+                    ..default()
+                },
+                background_color: Color::srgba(0.0, 0.0, 0.0, 0.7).into(),
+                border_color: Color::srgb(0.4, 0.4, 0.4).into(),
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            parent.spawn(NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },
+                ..default()
+            });
+        });
+}
+
+pub fn update_minimap(
+    mut commands: Commands,
+    minimap_query: Query<Entity, With<MinimapUi>>,
+    player_query: Query<&Transform, With<Player>>,
+    enemies_query: Query<(Entity, &Transform, Option<&Boss>), With<Enemy>>,
+) {
+    let Ok(minimap_entity) = minimap_query.get_single() else {
+        return;
+    };
+    let Ok(player_transform) = player_query.get_single() else {
+        return;
+    };
+
+    commands.entity(minimap_entity).despawn_descendants();
+
+    let player_pos = player_transform.translation.truncate();
+    let map_scale = 150.0 / 2400.0;
+
+    commands.entity(minimap_entity).with_children(|parent| {
+        parent.spawn(NodeBundle {
+            style: Style {
+                width: Val::Px(4.0),
+                height: Val::Px(4.0),
+                position_type: PositionType::Absolute,
+                left: Val::Px(75.0 + player_pos.x * map_scale - 2.0),
+                bottom: Val::Px(75.0 + player_pos.y * map_scale - 2.0),
+                ..default()
+            },
+            background_color: Color::srgb(0.0, 1.0, 0.0).into(),
+            ..default()
+        });
+
+        for (_entity, transform, boss) in enemies_query.iter() {
+            let pos = transform.translation.truncate();
+            let color = if boss.is_some() {
+                Color::srgb(1.0, 1.0, 0.0)
+            } else {
+                Color::srgb(1.0, 0.0, 0.0)
+            };
+            let size = if boss.is_some() { 6.0 } else { 3.0 };
+
+            parent.spawn(NodeBundle {
+                style: Style {
+                    width: Val::Px(size),
+                    height: Val::Px(size),
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(75.0 + pos.x * map_scale - size / 2.0),
+                    bottom: Val::Px(75.0 + pos.y * map_scale - size / 2.0),
+                    ..default()
+                },
+                background_color: color.into(),
+                ..default()
+            });
+        }
+    });
 }

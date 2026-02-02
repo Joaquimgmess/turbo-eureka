@@ -10,6 +10,7 @@ pub fn enemy_ai(
     player_query: Query<&Transform, With<Player>>,
     taunt_query: Query<&Transform, (With<Taunt>, Without<Enemy>, Without<Player>)>,
     mut enemies: Query<(&mut Transform, &Enemy, &mut CharacterState, &mut Sprite), Without<Player>>,
+    obstacles: Query<(&Transform, &Sprite), (With<Obstacle>, Without<Player>, Without<Enemy>)>,
 ) {
     let Ok(player_transform) = player_query.get_single() else {
         return;
@@ -30,7 +31,25 @@ pub fn enemy_ai(
         let distance = to_target.length();
         if distance > 80.0 {
             let direction = to_target.normalize();
-            transform.translation += (direction * enemy.speed * time.delta_seconds()).extend(0.0);
+            let movement = direction * enemy.speed * time.delta_seconds();
+            let new_pos = transform.translation + movement.extend(0.0);
+
+            let mut collision = false;
+            for (obs_transform, obs_sprite) in obstacles.iter() {
+                let obs_pos = obs_transform.translation.truncate();
+                let obs_size = obs_sprite.custom_size.unwrap_or(Vec2::splat(50.0)) / 2.0;
+                let dist_x = (new_pos.x - obs_pos.x).abs();
+                let dist_y = (new_pos.y - obs_pos.y).abs();
+                if dist_x < obs_size.x + 30.0 && dist_y < obs_size.y + 30.0 {
+                    collision = true;
+                    break;
+                }
+            }
+
+            if !collision {
+                transform.translation = new_pos;
+            }
+
             if *state != CharacterState::Attacking {
                 *state = CharacterState::Walking;
             }
@@ -283,7 +302,7 @@ pub fn update_elemental_statuses(
     player_query: Query<Entity, With<Player>>,
 ) {
     let player_entity = player_query.get_single().ok();
-    for (entity, mut status, mut sprite, mut enemy) in query.iter_mut() {
+    for (entity, status, mut sprite, _enemy) in query.iter_mut() {
         if status.fire_stacks > status.ice_stacks && status.fire_stacks > status.lightning_stacks {
             sprite.color = Color::srgb(1.0, 0.5, 0.5);
         } else if status.ice_stacks > status.fire_stacks
