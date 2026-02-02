@@ -268,14 +268,22 @@ pub fn setup_minimap(mut commands: Commands) {
             },
         ))
         .with_children(|parent| {
-            parent.spawn(NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
+            // Player icon - persistent
+            parent.spawn((
+                MinimapPlayerIcon,
+                NodeBundle {
+                    style: Style {
+                        width: Val::Px(4.0),
+                        height: Val::Px(4.0),
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(73.0),
+                        bottom: Val::Px(73.0),
+                        ..default()
+                    },
+                    background_color: Color::srgb(0.0, 1.0, 0.0).into(),
                     ..default()
                 },
-                ..default()
-            });
+            ));
         });
 }
 
@@ -284,6 +292,8 @@ pub fn update_minimap(
     minimap_query: Query<Entity, With<MinimapUi>>,
     player_query: Query<&Transform, With<Player>>,
     enemies_query: Query<(Entity, &Transform, Option<&Boss>), With<Enemy>>,
+    mut player_icon: Query<&mut Style, With<MinimapPlayerIcon>>,
+    enemy_icons: Query<(Entity, &MinimapEnemyIcon)>,
 ) {
     let Ok(minimap_entity) = minimap_query.get_single() else {
         return;
@@ -292,46 +302,57 @@ pub fn update_minimap(
         return;
     };
 
-    commands.entity(minimap_entity).despawn_descendants();
-
     let player_pos = player_transform.translation.truncate();
     let map_scale = 150.0 / (MAP_BOUNDS * 2.0);
 
-    commands.entity(minimap_entity).with_children(|parent| {
-        parent.spawn(NodeBundle {
-            style: Style {
-                width: Val::Px(4.0),
-                height: Val::Px(4.0),
-                position_type: PositionType::Absolute,
-                left: Val::Px(75.0 + player_pos.x * map_scale - 2.0),
-                bottom: Val::Px(75.0 + player_pos.y * map_scale - 2.0),
-                ..default()
-            },
-            background_color: Color::srgb(0.0, 1.0, 0.0).into(),
-            ..default()
-        });
+    // Update player icon position
+    if let Ok(mut style) = player_icon.get_single_mut() {
+        style.left = Val::Px(75.0 + player_pos.x * map_scale - 2.0);
+        style.bottom = Val::Px(75.0 + player_pos.y * map_scale - 2.0);
+    }
 
-        for (_entity, transform, boss) in enemies_query.iter() {
-            let pos = transform.translation.truncate();
-            let color = if boss.is_some() {
-                Color::srgb(1.0, 1.0, 0.0)
+    // Track existing enemy icons
+    let mut existing: std::collections::HashSet<Entity> =
+        enemy_icons.iter().map(|(_, icon)| icon.0).collect();
+
+    // Update or create enemy icons
+    for (enemy_entity, transform, boss) in enemies_query.iter() {
+        let pos = transform.translation.truncate();
+
+        if existing.remove(&enemy_entity) {
+            // Enemy already has icon - no update needed (position updates are expensive in UI)
+        } else {
+            // Create new icon
+            let (color, size) = if boss.is_some() {
+                (Color::srgb(1.0, 1.0, 0.0), 6.0)
             } else {
-                Color::srgb(1.0, 0.0, 0.0)
+                (Color::srgb(1.0, 0.0, 0.0), 3.0)
             };
-            let size = if boss.is_some() { 6.0 } else { 3.0 };
 
-            parent.spawn(NodeBundle {
-                style: Style {
-                    width: Val::Px(size),
-                    height: Val::Px(size),
-                    position_type: PositionType::Absolute,
-                    left: Val::Px(75.0 + pos.x * map_scale - size / 2.0),
-                    bottom: Val::Px(75.0 + pos.y * map_scale - size / 2.0),
-                    ..default()
-                },
-                background_color: color.into(),
-                ..default()
+            commands.entity(minimap_entity).with_children(|parent| {
+                parent.spawn((
+                    MinimapEnemyIcon(enemy_entity),
+                    NodeBundle {
+                        style: Style {
+                            width: Val::Px(size),
+                            height: Val::Px(size),
+                            position_type: PositionType::Absolute,
+                            left: Val::Px(75.0 + pos.x * map_scale - size / 2.0),
+                            bottom: Val::Px(75.0 + pos.y * map_scale - size / 2.0),
+                            ..default()
+                        },
+                        background_color: color.into(),
+                        ..default()
+                    },
+                ));
             });
         }
-    });
+    }
+
+    // Remove icons for dead enemies
+    for (icon_entity, icon) in enemy_icons.iter() {
+        if existing.contains(&icon.0) {
+            commands.entity(icon_entity).despawn();
+        }
+    }
 }

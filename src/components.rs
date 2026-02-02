@@ -117,6 +117,12 @@ pub struct Obstacle;
 pub struct MinimapUi;
 
 #[derive(Component)]
+pub struct MinimapPlayerIcon;
+
+#[derive(Component)]
+pub struct MinimapEnemyIcon(pub Entity);
+
+#[derive(Component)]
 pub struct MinimapIcon {
     pub entity: Entity,
     pub icon_type: IconType,
