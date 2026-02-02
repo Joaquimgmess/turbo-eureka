@@ -386,8 +386,9 @@ pub fn start_game(
     let player_entity = spawn_player(&mut commands, &sprites, Vec3::ZERO, class);
 
     if class == PlayerClass::Tamer {
-        for pet_type in pending.pets.iter() {
-            spawn_pet(&mut commands, player_entity, *pet_type);
+        for (i, pet_type) in pending.pets.iter().enumerate() {
+            let offset = Vec2::new((i as f32 - 0.5) * 80.0, -60.0);
+            spawn_pet(&mut commands, player_entity, *pet_type, offset);
         }
     }
 

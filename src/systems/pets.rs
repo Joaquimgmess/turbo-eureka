@@ -2,7 +2,7 @@ use crate::components::*;
 use crate::events::*;
 use bevy::prelude::*;
 
-pub fn spawn_pet(commands: &mut Commands, owner: Entity, pet_type: PetType) {
+pub fn spawn_pet(commands: &mut Commands, owner: Entity, pet_type: PetType, offset: Vec2) {
     let color = match pet_type {
         PetType::Healer => Color::srgb(0.2, 1.0, 0.5),
         PetType::Damager => Color::srgb(1.0, 0.2, 0.2),
@@ -17,7 +17,7 @@ pub fn spawn_pet(commands: &mut Commands, owner: Entity, pet_type: PetType) {
                 custom_size: Some(Vec2::splat(16.0)),
                 ..default()
             },
-            transform: Transform::from_xyz(0.0, 0.0, 8.0),
+            transform: Transform::from_translation(offset.extend(8.0)),
             ..default()
         },
         Pet {
