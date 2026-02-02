@@ -227,7 +227,12 @@ pub fn start_game(
     mut commands: Commands,
     pending: Res<PendingSelection>,
     sprites: Res<CharacterSprites>,
+    player_query: Query<Entity, With<Player>>,
 ) {
+    if player_query.get_single().is_ok() {
+        return;
+    }
+
     let class = pending.class.unwrap_or(PlayerClass::Archer);
     let player_entity = spawn_player(&mut commands, &sprites, Vec3::ZERO, class);
 

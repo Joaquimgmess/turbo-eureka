@@ -289,7 +289,10 @@ pub fn generate_map(
     }
 }
 
-pub fn setup_minimap(mut commands: Commands) {
+pub fn setup_minimap(mut commands: Commands, query: Query<Entity, With<MinimapUi>>) {
+    if query.get_single().is_ok() {
+        return;
+    }
     commands
         .spawn((
             MinimapUi,

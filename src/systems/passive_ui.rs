@@ -36,7 +36,9 @@ pub fn setup_passive_ui(
     passive_tree: Res<PassiveTree>,
     player_query: Query<&PlayerPassives, With<Player>>,
 ) {
-    let player_passives = player_query.get_single().expect("Player should exist");
+    let Ok(player_passives) = player_query.get_single() else {
+        return;
+    };
     let points = player_passives.points;
 
     commands
