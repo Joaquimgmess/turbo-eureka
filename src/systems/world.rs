@@ -98,13 +98,19 @@ pub fn collect_xp(
 pub fn spawn_boss(
     mut commands: Commands,
     time: Res<Time>,
-    game_stats: Res<GameStats>,
+    mut game_stats: ResMut<GameStats>,
     map_tier: Res<MapTier>,
     sprites: Res<CharacterSprites>,
     player_query: Query<&Transform, With<Player>>,
     boss_query: Query<&Boss>,
 ) {
-    if game_stats.time_survived % 120.0 < time.delta_seconds() && boss_query.iter().count() == 0 {
+    let spawn_interval = 120.0;
+    let current_time = game_stats.time_survived;
+    let last_time = current_time - time.delta_seconds();
+
+    if (current_time / spawn_interval).floor() > (last_time / spawn_interval).floor()
+        && boss_query.iter().count() == 0
+    {
         let Ok(player_transform) = player_query.get_single() else {
             return;
         };

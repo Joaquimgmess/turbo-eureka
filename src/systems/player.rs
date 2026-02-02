@@ -32,7 +32,14 @@ pub fn player_movement(
     }
     if direction.length_squared() > 0.0 {
         direction = direction.normalize();
-        transform.translation += (direction * stats.speed * time.delta_seconds()).extend(0.0);
+        let mut new_pos =
+            transform.translation + (direction * stats.speed * time.delta_seconds()).extend(0.0);
+
+        new_pos.x = new_pos.x.clamp(-1200.0, 1200.0);
+        new_pos.y = new_pos.y.clamp(-1200.0, 1200.0);
+
+        transform.translation = new_pos;
+
         if *state != CharacterState::Attacking {
             *state = CharacterState::Walking;
         }
@@ -55,7 +62,12 @@ pub fn update_dash(
             commands.entity(entity).remove::<Dash>();
         } else {
             let movement = dash.direction * dash.speed * time.delta_seconds();
-            transform.translation += movement.extend(0.0);
+            let mut new_pos = transform.translation + movement.extend(0.0);
+
+            new_pos.x = new_pos.x.clamp(-1200.0, 1200.0);
+            new_pos.y = new_pos.y.clamp(-1200.0, 1200.0);
+
+            transform.translation = new_pos;
         }
     }
 }
@@ -328,7 +340,11 @@ pub fn player_skills(
             }
             PlayerClass::Mage => {
                 let direction = (cursor_pos.0 - player_pos).normalize_or_zero();
-                let target = player_pos + direction * 200.0;
+                let mut target = player_pos + direction * 200.0;
+
+                target.x = target.x.clamp(-1200.0, 1200.0);
+                target.y = target.y.clamp(-1200.0, 1200.0);
+
                 transform.translation = target.extend(10.0);
                 commands.spawn((
                     SpriteBundle {
