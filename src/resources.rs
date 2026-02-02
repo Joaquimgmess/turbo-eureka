@@ -3,6 +3,9 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 #[derive(Resource, Default)]
+pub struct EnemyCount(pub usize);
+
+#[derive(Resource, Default)]
 pub struct MapTier(pub u32);
 
 #[derive(Resource)]
