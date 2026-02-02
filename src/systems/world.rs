@@ -49,6 +49,7 @@ pub fn collect_xp(
     player_query: Query<(&Transform, Entity), With<Player>>,
     mut xp_orbs: Query<(Entity, &mut Transform, &XpOrb, &mut Lifetime), Without<Player>>,
     mut levels: Query<(&mut Level, &mut Stats, &mut Health, &mut PlayerPassives)>,
+    mut camera_shake: Query<&mut CameraShake, With<Camera2d>>,
 ) {
     let Ok((player_transform, player_entity)) = player_query.get_single() else {
         return;
@@ -89,6 +90,49 @@ pub fn collect_xp(
                 health.current = health.max;
 
                 passives.points += 1;
+
+                // Screen shake
+                if let Ok(mut shake) = camera_shake.get_single_mut() {
+                    crate::plugins::game_feel::add_trauma(&mut shake, 0.3);
+                }
+
+                // Level up text
+                commands.spawn((
+                    Text2dBundle {
+                        text: Text::from_section(
+                            format!("LEVEL {}!", level.level),
+                            TextStyle {
+                                font_size: 32.0,
+                                color: Color::srgb(1.0, 0.9, 0.2),
+                                ..default()
+                            },
+                        ),
+                        transform: Transform::from_translation(
+                            player_transform.translation + Vec3::new(0.0, 60.0, 100.0),
+                        ),
+                        ..default()
+                    },
+                    DamageNumber {
+                        velocity: Vec2::new(0.0, 80.0),
+                        lifetime: Timer::from_seconds(1.5, TimerMode::Once),
+                    },
+                ));
+
+                // Expanding ring
+                commands.spawn((
+                    SpriteBundle {
+                        sprite: Sprite {
+                            color: Color::srgba(1.0, 0.9, 0.2, 0.6),
+                            custom_size: Some(Vec2::splat(50.0)),
+                            ..default()
+                        },
+                        transform: Transform::from_translation(player_transform.translation),
+                        ..default()
+                    },
+                    LevelUpRing {
+                        timer: Timer::from_seconds(0.5, TimerMode::Once),
+                    },
+                ));
             }
 
             commands.entity(orb_entity).despawn();

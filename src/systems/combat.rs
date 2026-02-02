@@ -168,6 +168,7 @@ pub fn process_damage(
             Option<&Invulnerable>,
             Option<&mut ElementalStatus>,
             Option<&PlayerPassives>,
+            &Sprite,
         ),
         Without<Player>,
     >,
@@ -178,11 +179,14 @@ pub fn process_damage(
             Option<&mut Shield>,
             &Transform,
             &PlayerPassives,
+            &Sprite,
         ),
         With<Player>,
     >,
     mut game_stats: ResMut<GameStats>,
     mut status_events: EventWriter<ApplyStatusEvent>,
+    mut camera_shake: Query<&mut CameraShake, With<Camera2d>>,
+    mut hit_stop: ResMut<HitStop>,
 ) {
     let mut rng = rand::thread_rng();
 
@@ -192,9 +196,12 @@ pub fn process_damage(
         let mut life_leech_pct = 0.0;
         let mut shield_leech_pct = 0.0;
         let mut damage_mult = 1.0;
+        let mut target_is_player = false;
 
         if let Some(attacker_entity) = event.attacker {
-            if let Ok((p_entity, _, _, p_transform, passives)) = player_query.get(attacker_entity) {
+            if let Ok((p_entity, _, _, p_transform, passives, _)) =
+                player_query.get(attacker_entity)
+            {
                 if p_entity == attacker_entity {
                     if passives.unlocked_nodes.contains(&8) {
                         knockback_info = Some(p_transform.translation);
@@ -217,14 +224,24 @@ pub fn process_damage(
 
         let mut final_damage = 0.0;
         let mut target_transform_pos = Vec3::ZERO;
+        let mut target_sprite_color = Color::WHITE;
         let target_is_crit = event.is_crit;
 
-        if let Ok((mut health, mut shield, mut transform, stats, invuln, status, target_passives)) =
-            target_query.get_mut(event.target)
+        if let Ok((
+            mut health,
+            mut shield,
+            mut transform,
+            stats,
+            invuln,
+            status,
+            target_passives,
+            sprite,
+        )) = target_query.get_mut(event.target)
         {
             if invuln.is_some() {
                 continue;
             }
+            target_sprite_color = sprite.color;
             let mut armor = stats.map(|s| s.armor).unwrap_or(0.0);
             if let Some(passives) = target_passives {
                 if passives.unlocked_nodes.contains(&101) {
@@ -291,9 +308,11 @@ pub fn process_damage(
                     .normalize_or_zero();
                 transform.translation += (dir * KNOCKBACK_FORCE).extend(0.0);
             }
-        } else if let Ok((_e, mut health, mut shield, transform, passives)) =
+        } else if let Ok((_e, mut health, mut shield, transform, passives, sprite)) =
             player_query.get_mut(event.target)
         {
+            target_is_player = true;
+            target_sprite_color = sprite.color;
             let mut armor = 0.0;
             if passives.unlocked_nodes.contains(&101) {
                 armor = 50.0;
@@ -321,8 +340,27 @@ pub fn process_damage(
 
         if final_damage > 0.0 {
             game_stats.damage_dealt += final_damage;
+
+            crate::plugins::game_feel::trigger_damage_flash(
+                &mut commands,
+                event.target,
+                target_sprite_color,
+            );
+
+            if target_is_player {
+                if let Ok(mut shake) = camera_shake.get_single_mut() {
+                    let trauma = (final_damage / 50.0).min(0.5);
+                    crate::plugins::game_feel::add_trauma(&mut shake, trauma);
+                }
+            } else if target_is_crit {
+                if let Ok(mut shake) = camera_shake.get_single_mut() {
+                    crate::plugins::game_feel::add_trauma(&mut shake, 0.15);
+                }
+                crate::plugins::game_feel::trigger_hit_stop(&mut hit_stop, 40);
+            }
+
             if let Some(attacker_entity) = event.attacker {
-                if let Ok((p_entity, mut p_health, mut p_shield, _, _)) =
+                if let Ok((p_entity, mut p_health, mut p_shield, _, _, _)) =
                     player_query.get_single_mut()
                 {
                     if p_entity == attacker_entity {
