@@ -164,21 +164,23 @@ pub fn spawn_boss(
         commands.spawn((
             Boss,
             Enemy {
-                damage: 45.0 * tier_scale,
-                xp_value: 500 * map_tier.0,
-                attack_cooldown: Timer::from_seconds(0.8, TimerMode::Once),
-                speed: 120.0 + (map_tier.0 as f32 * 5.0),
+                damage: 80.0 * tier_scale,
+                xp_value: 1000 * map_tier.0,
+                attack_cooldown: Timer::from_seconds(0.6, TimerMode::Once),
+                speed: 140.0 + (map_tier.0 as f32 * 8.0),
             },
             ElementalStatus::default(),
             Health {
-                current: 2000.0 * tier_scale,
-                max: 2000.0 * tier_scale,
+                current: 8000.0 * tier_scale,
+                max: 8000.0 * tier_scale,
             },
+            Velocity(Vec2::ZERO),
+            CharacterState::Idle,
             SpriteBundle {
                 texture: sprites.orc_idle.clone(),
                 sprite: Sprite {
-                    color: Color::srgb(0.3, 0.1, 0.4),
-                    custom_size: Some(Vec2::splat(350.0)),
+                    color: Color::srgb(0.5, 0.1, 0.1),
+                    custom_size: Some(Vec2::splat(400.0)),
                     ..default()
                 },
                 transform: Transform::from_translation(spawn_pos.extend(6.0)),

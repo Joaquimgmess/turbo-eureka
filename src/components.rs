@@ -326,3 +326,9 @@ pub struct DamageFlash {
 pub struct LevelUpRing {
     pub timer: Timer,
 }
+
+#[derive(Component)]
+pub struct BossHealthBarUi;
+
+#[derive(Component)]
+pub struct BossHealthBarFill;

@@ -15,6 +15,9 @@ impl Plugin for UIPlugin {
                 update_cooldown_ui,
                 update_stats_ui,
                 update_damage_numbers,
+                spawn_boss_health_bar,
+                update_boss_health_bar,
+                despawn_boss_health_bar,
             )
                 .run_if(in_state(GameState::Playing)),
         );

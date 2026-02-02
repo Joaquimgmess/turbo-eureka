@@ -2,6 +2,106 @@ use crate::components::*;
 use crate::resources::*;
 use bevy::prelude::*;
 
+pub fn spawn_boss_health_bar(
+    mut commands: Commands,
+    boss_query: Query<Entity, Added<Boss>>,
+    existing_bar: Query<Entity, With<BossHealthBarUi>>,
+) {
+    if boss_query.is_empty() {
+        return;
+    }
+    if !existing_bar.is_empty() {
+        return;
+    }
+
+    commands
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(40.0),
+                    left: Val::Percent(50.0),
+                    margin: UiRect {
+                        left: Val::Px(-200.0),
+                        ..default()
+                    },
+                    width: Val::Px(400.0),
+                    height: Val::Px(30.0),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                ..default()
+            },
+            BossHealthBarUi,
+        ))
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "BOSS",
+                TextStyle {
+                    font_size: 18.0,
+                    color: Color::srgb(1.0, 0.3, 0.3),
+                    ..default()
+                },
+            ));
+
+            parent
+                .spawn(NodeBundle {
+                    style: Style {
+                        width: Val::Px(400.0),
+                        height: Val::Px(20.0),
+                        margin: UiRect::top(Val::Px(4.0)),
+                        ..default()
+                    },
+                    background_color: BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.9)),
+                    border_radius: BorderRadius::all(Val::Px(4.0)),
+                    ..default()
+                })
+                .with_children(|bar_parent| {
+                    bar_parent.spawn((
+                        NodeBundle {
+                            style: Style {
+                                width: Val::Percent(100.0),
+                                height: Val::Percent(100.0),
+                                ..default()
+                            },
+                            background_color: BackgroundColor(Color::srgb(0.8, 0.1, 0.1)),
+                            border_radius: BorderRadius::all(Val::Px(4.0)),
+                            ..default()
+                        },
+                        BossHealthBarFill,
+                    ));
+                });
+        });
+}
+
+pub fn update_boss_health_bar(
+    boss_query: Query<&Health, With<Boss>>,
+    mut fill_query: Query<&mut Style, With<BossHealthBarFill>>,
+) {
+    let Ok(health) = boss_query.get_single() else {
+        return;
+    };
+    let Ok(mut style) = fill_query.get_single_mut() else {
+        return;
+    };
+
+    let percent = (health.current / health.max).clamp(0.0, 1.0) * 100.0;
+    style.width = Val::Percent(percent);
+}
+
+pub fn despawn_boss_health_bar(
+    mut commands: Commands,
+    boss_query: Query<Entity, With<Boss>>,
+    bar_query: Query<Entity, With<BossHealthBarUi>>,
+) {
+    if boss_query.is_empty() {
+        for entity in bar_query.iter() {
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+}
+
 pub fn update_health_bars(
     parents: Query<(&Health, &Children), Changed<Health>>,
     mut health_bars: Query<(&mut Sprite, &mut Transform, &HealthBarFill)>,
