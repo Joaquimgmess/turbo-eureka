@@ -1,6 +1,6 @@
 # Propósito
 
-ARPG feito com Bevy para estudo prático de Rust.
+Jogo feito com Bevy para estudo prático de Rust.
 
 ## Conceitos praticados
 
