@@ -3,22 +3,22 @@ use crate::resources::*;
 use bevy::prelude::*;
 
 pub fn update_health_bars(
-    parents: Query<&Health>,
-    mut health_bars: Query<(&Parent, &mut Sprite, &mut Transform, &HealthBarFill)>,
+    parents: Query<(&Health, &Children), Changed<Health>>,
+    mut health_bars: Query<(&mut Sprite, &mut Transform, &HealthBarFill)>,
 ) {
-    for (parent, mut sprite, mut transform, fill) in health_bars.iter_mut() {
-        let Ok(health) = parents.get(parent.get()) else {
-            continue;
-        };
+    for (health, children) in parents.iter() {
+        for &child in children.iter() {
+            if let Ok((mut sprite, mut transform, fill)) = health_bars.get_mut(child) {
+                let percent = (health.current / health.max).clamp(0.0, 1.0);
 
-        let percent = (health.current / health.max).clamp(0.0, 1.0);
-
-        if let Some(ref mut size) = sprite.custom_size {
-            let full_width = fill.0;
-            let new_width = full_width * percent;
-            let offset = (full_width - new_width) / 2.0;
-            transform.translation.x = -offset;
-            size.x = new_width.max(0.1);
+                if let Some(ref mut size) = sprite.custom_size {
+                    let full_width = fill.0;
+                    let new_width = full_width * percent;
+                    let offset = (full_width - new_width) / 2.0;
+                    transform.translation.x = -offset;
+                    size.x = new_width.max(0.1);
+                }
+            }
         }
     }
 }
